@@ -440,3 +440,11 @@
 {"from":"hilo-mcp/src/server.rs","to":"pkg:tracing","rel":"imports","provenance":"ast_exact","confidence":1.0}
 {"from":"hilo-permissions/tests/permission_test.rs","to":"pkg:hilo_permissions","rel":"imports","provenance":"ast_exact","confidence":1.0}
 {"from":"hilo-permissions/tests/permission_test.rs","to":"pkg:std","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"hilo-graph/benches/signal_bench.rs","to":"pkg:criterion","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"hilo-graph/benches/signal_bench.rs","to":"pkg:hilo_graph","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"hilo-graph/benches/signal_bench.rs","to":"pkg:hilo_graph","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"hilo-graph/benches/signal_bench.rs","to":"pkg:hilo_metadata","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"hilo-graph/benches/semantic_bench.rs","to":"pkg:criterion","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"hilo-graph/benches/semantic_bench.rs","to":"pkg:hilo_graph","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"hilo-graph/benches/semantic_bench.rs","to":"pkg:hilo_graph","rel":"imports","provenance":"ast_exact","confidence":1.0}
+{"from":"hilo-graph/benches/semantic_bench.rs","to":"pkg:hilo_metadata","rel":"imports","provenance":"ast_exact","confidence":1.0}

@@ -9,18 +9,18 @@ guards:
   static_analysis: true
   static_analysis_tools: {}
 evaluator:
-  max_iterations: 25
-  max_time: 5m
-  max_input_tokens: 1M
-  max_output_tokens: 0.5M
+  max_iterations: 50
+  max_time: 10m
+  max_input_tokens: 0.2M
+  max_output_tokens: 0.4M
   tool_call_weight: 0.1
-  compaction_threshold: 0.90
-  code_context_budget: 0.70
-  lsp_diagnostics: true
-  static_analysis_diagnostics: true
+  fast_track: auto
+
 defaults:
-  model: deepseek-v4-pro
-  check_for_updates: true
+  model: deepseek-v4-flash
+  provider: deepseek-foreman
+  api_key_env: GITREINS_LLM_API_KEY
+
 history:
   enabled: true
   storage: git
