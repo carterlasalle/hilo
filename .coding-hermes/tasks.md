@@ -36,9 +36,9 @@
 |----|------|-----|-----|------|------|-------|-----------|----------|
 | NEVER-DONE | 11-point audit sweep (tick #35) | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
 
-**Assumptions:** Rust project — `cargo check`, `cargo fmt`, `cargo test --workspace` all PASS (327 tests). `cargo audit`: 6 pre-existing warnings. CI all green (latest 3 runs). Zero source TODOs. GitReins: 12/12 complete.
+**Assumptions:** Rust project — `cargo check`, `cargo fmt`, `cargo test --workspace` all PASS (525 tests). `cargo audit`: 6 pre-existing warnings. CI all green (latest 5 runs). Zero source TODOs. GitReins: 12/12 complete.
 
-**Routing Notes:** Board has 0 real tasks — project idle. Scheduler CooldownS=43200 (12h, STABLE). 21 idle ticks, 15th escalation to Bane. Cooldown persisted across daemon restart (confirmed 7 ticks). Consider disabling in scheduler DB to stop PAYG burn (~$0.60/day for zero output).
+**Routing Notes:** Board has 0 real tasks — project idle. Scheduler CooldownS=43200 (12h, STABLE). 22 idle ticks, 16th escalation to Bane. Cooldown persisted across daemon restart (confirmed 7 ticks). Consider disabling in scheduler DB to stop PAYG burn (~$0.60/day for zero output).
 
 **Execution Order:** NEVER-DONE only.
 
@@ -69,4 +69,25 @@
 | 11 | Scheduler | IDLE | Cooldown 43200s (12h), model: deepseek-v4-flash@deepseek-foreman |
 | 12 | Dispatch | SKIP | Zero active tasks. Project genuinely idle. |
 
-**Verdict:** IDLE — 21st consecutive idle tick, 15th escalation to Bane. All 12 gates PASS. Zero code changes in 2+ weeks. Hilo=useful (201 edges, 81 files). Suggest disabling scheduler DB entry to stop PAYG burn.
+### Tick 22 — 2026-07-25 20:12 UTC (deepseek-v4-flash)
+
+| # | Gate | Result | Detail |
+|---|------|--------|--------|
+| 1 | Git status | PASS | 2 modified (config.yaml housekeeping, edges.jsonl Hilo warm) — no worker output |
+| 2 | Host load | PASS | 6.20 load, 43Gi available memory |
+| 3 | GitReins guard | PASS | secrets clean, rust-analyzer clean |
+| 4 | Hilo graph | PASS | 290 edges, 81 files, 4 languages — useful |
+| 5 | Cargo check | PASS | 1.05s |
+| 6 | Cargo clippy | PASS | 0.29s, zero warnings |
+| 7 | TODO/FIXME | PASS | Zero across all .rs files |
+| 8 | Cargo audit | PASS | 6 pre-existing warnings (RUSTSEC-2026-0008 git2, fuser) |
+| 9 | Cargo test | PASS | 525 passed, 0 failed (all crates, all suites) |
+| 10 | GitReins config | PASS | Config exists with evaluator section (deepseek-v4-flash) |
+| 11 | Board consistency | PASS | Board 12/12 = GitReins 12/12 (all complete). No drift. No pending GitReins tasks. |
+| 12 | DuckBrain | WARN | warpfs namespace exists but is empty (0 memories). MCP connection intermittent. |
+| 13 | NEVER-DONE docs | PASS | SECURITY.md, CHANGELOG.md, CONTRIBUTING.md, LICENSE, CODE_OF_CONDUCT all present |
+| 14 | CI health | PASS | All 5 recent CI runs green |
+| 15 | Scheduler | IDLE | Cooldown 43200s (12h, STABLE), model: deepseek-v4-flash@deepseek-foreman, Enabled: true |
+| 16 | Dispatch | SKIP | Zero active tasks. Project genuinely idle. |
+
+**Verdict:** IDLE — 22nd consecutive idle tick, 16th escalation to Bane. All 16 gates PASS (1 WARN for DuckBrain MCP connection). Zero code changes in 3+ weeks. Hilo=useful (290 edges, 81 files). 525/525 tests pass (up from 327 — board corrected). Prior-foreman config housekeeping (evaluator caps tuned to Rust-appropriate values: 50 iter/10m/0.2M input/0.4M output) committed alongside this tick. Scheduler CooldownS=43200 (12h) confirmed stable. Recommend disabling scheduler DB entry to stop PAYG burn (~$0.60/day).
