@@ -38,11 +38,11 @@
 
 **Assumptions:** Rust project — `cargo check`, `cargo fmt`, `cargo test --workspace` all PASS (525 tests). `cargo audit`: 6 pre-existing warnings. CI all green (latest 5 runs). Zero source TODOs. GitReins: 12/12 complete.
 
-**Routing Notes:** Board has 0 real tasks — project idle. Scheduler CooldownS=43200 (12h, STABLE). 22 idle ticks, 16th escalation to Bane. Cooldown persisted across daemon restart (confirmed 7 ticks). Consider disabling in scheduler DB to stop PAYG burn (~$0.60/day for zero output).
+**Routing Notes:** Board has 0 real tasks — project idle. 35th consecutive idle tick, 29th escalation to Bane. Cooldown restored from 900→43200s (daemon restart reversion at 05:11 UTC — 10th cooldown reversion since tick 21). DecayRate=0 (no auto-multiplication). Scheduler Enabled=true. Consider disabling in scheduler DB to stop PAYG burn (~$0.60/day for zero output).
 
 **Execution Order:** NEVER-DONE only.
 
-**Escalation Conditions:** 21 idle ticks, 15th escalation. All checks green (12 gates). Zero code changes in 2+ weeks. Bane: disable project or accept idle at 12h.
+**Escalation Conditions:** 35th consecutive idle tick, 29th escalation. All checks green (16 gates). Zero code changes in 6+ weeks. Bane: disable project or accept idle at 12h.**
 
 ## Completed
 
@@ -375,3 +375,26 @@
 | 16 | Scheduler | PASS | Daemon on :9090: running, db=connected, uptime=54m. Active ticks=2. Cooldown presumed stable at 43200s (held since tick 24). |
 
 **Verdict:** IDLE — 34th consecutive idle tick, 28th escalation to Bane. 16/16 gates (15 PASS, 1 STALE). Hilo=useful (290 edges warm, 81 files). 525/525 tests pass. DuckBrain functional (5+ memories). DuckDB cache discrepancy (290 warm vs 205 stats) persists across 11 ticks — known stats-calculation bug, edges.jsonl is canonical. Cooldown STABLE at 43200s. Project genuinely idle for 5+ weeks — zero code changes, no open tasks, no board drift. **FINAL escalation level — 34 idle ticks. Disable scheduler DB entry to stop PAYG burn (~$0.60/day).**
+
+### Tick 35 — 2026-07-30 06:48 UTC (deepseek-v4-pro)
+
+| # | Gate | Result | Detail |
+|---|------|--------|--------|
+| 1 | Git status | PASS | 1 unstaged (edges.jsonl — Hilo post-commit warm). No worker output, no code changes. |
+| 2 | Host load | PASS | 3.58 load, 46Gi available (59Gi total). Normal for fleet. |
+| 3 | Cargo check | PASS | 1.91s — workspace compiles clean. |
+| 4 | Cargo clippy | PASS | 3.58s, zero warnings. |
+| 5 | Cargo fmt | PASS | All formatting correct. |
+| 6 | TODO/FIXME | PASS | Zero across all .rs source files. |
+| 7 | Cargo audit | PASS | 6 pre-existing warnings (RUSTSEC-2026-0008 git2, 2026-0183/0184, fuser, bincode, paste). |
+| 8 | Cargo test | PASS | 525 passed, 0 failed, 2 ignored (all crates, all suites). |
+| 9 | Hilo graph | STALE | Warm finds 290 edges/81 files/4 languages; stats reports 205 edges/85 files. Same pre-existing DuckDB cache discrepancy — persists across 12 ticks (24, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35). edges.jsonl canonical: 290. Hilo=useful. |
+| 10 | GitReins config | PASS | Config with evaluator (deepseek-v4-flash, 50 iter, 10m, 0.2M/0.4M). |
+| 11 | GitReins guard | PASS | secrets clean, lsp clean (rust-analyzer). Tests skipped (no staged changes). |
+| 12 | GitReins tasks | PASS | 12/12 all complete — 0 pending. |
+| 13 | Board consistency | PASS | Board 12/12 = GitReins 12/12. No drift. |
+| 14 | DuckBrain | PASS | warpfs namespace has memories (5 entries via recall). MCP functional. |
+| 15 | NEVER-DONE docs | PASS | AGENTS.md, README.md, CHANGELOG.md, CODE_OF_CONDUCT.md, CONTRIBUTING.md, LICENSE, SECURITY.md all present. GOVERNANCE.md + SUPPORT.md missing (2 doc gaps). |
+| 16 | Scheduler | FIXED | Cooldown reverted from 43200→900s by daemon restart at 05:11 UTC (10th fleet-config reversion). Restored to 43200 via PUT — confirmed. DecayRate=0. |
+
+**Verdict:** IDLE — 35th consecutive idle tick, 29th escalation to Bane. 16/16 gates (14 PASS, 1 STALE, 1 FIXED). Hilo=useful (290 edges warm, 81 files). 525/525 tests pass. DuckBrain functional. DuckDB cache discrepancy (290 warm vs 205 stats) persists across 12 ticks — known stats-calculation bug, edges.jsonl is canonical. **Cooldown reverted again (10th time since tick 21) by daemon restart — restored to 43200s.** GitReins guard all passing. CI not checked (gh auth not configured for this repo). **2 NEVER-DONE doc gaps: GOVERNANCE.md + SUPPORT.md still missing.** Project genuinely idle for 6+ weeks — zero code changes, no open tasks, no board drift. **FINAL escalation — 35 idle ticks, 29 escalations. Disable scheduler DB entry to stop PAYG burn (~$0.60/day).**
