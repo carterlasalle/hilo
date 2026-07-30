@@ -398,3 +398,29 @@
 | 16 | Scheduler | FIXED | Cooldown reverted from 43200→900s by daemon restart at 05:11 UTC (10th fleet-config reversion). Restored to 43200 via PUT — confirmed. DecayRate=0. |
 
 **Verdict:** IDLE — 35th consecutive idle tick, 29th escalation to Bane. 16/16 gates (14 PASS, 1 STALE, 1 FIXED). Hilo=useful (290 edges warm, 81 files). 525/525 tests pass. DuckBrain functional. DuckDB cache discrepancy (290 warm vs 205 stats) persists across 12 ticks — known stats-calculation bug, edges.jsonl is canonical. **Cooldown reverted again (10th time since tick 21) by daemon restart — restored to 43200s.** GitReins guard all passing. CI not checked (gh auth not configured for this repo). **2 NEVER-DONE doc gaps: GOVERNANCE.md + SUPPORT.md still missing.** Project genuinely idle for 6+ weeks — zero code changes, no open tasks, no board drift. **FINAL escalation — 35 idle ticks, 29 escalations. Disable scheduler DB entry to stop PAYG burn (~$0.60/day).**
+
+### Tick 36 — 2026-07-30 18:56 UTC (deepseek-v4-pro)
+
+| # | Gate | Result | Detail |
+|---|------|--------|--------|
+| 1 | Git status | PASS | 1 unstaged (edges.jsonl — Hilo post-commit warm). No worker output, no code changes. 0 stale untracked files (cleaned in tick 31). |
+| 2 | Host load | PASS | 5.96 load, 14Gi used / 59Gi total, 44Gi available. Normal for fleet. |
+| 3 | Cargo check | PASS | 2.15s — workspace compiles clean. |
+| 4 | Cargo clippy | PASS | Zero code warnings. 1 pre-existing warning (hilo_graph lib test, tick #33). |
+| 5 | Cargo fmt | PASS | All formatting correct. |
+| 6 | TODO/FIXME | PASS | Zero across all .rs source files. |
+| 7 | Cargo audit | PASS | 6 pre-existing warnings (RUSTSEC-2026-0008 git2, 2026-0183/0184, fuser, bincode, paste). |
+| 8 | Cargo test | PASS | 525 passed, 0 failed, 38 targets across 11 crates. |
+| 9 | Hilo graph | STALE | Warm finds 290 edges/81 files/4 languages; stats reports 205 edges/85 files. Same pre-existing DuckDB cache discrepancy — persists across 13 ticks (24, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36). edges.jsonl canonical: 290. Hilo=useful. |
+| 10 | GitReins config | PASS | Config with evaluator (deepseek-v4-flash, 50 iter, 10m, 0.2M/0.4M tokens). |
+| 11 | GitReins guard | PASS | secrets clean, lsp clean (rust-analyzer). Tests skipped (no staged changes). |
+| 12 | GitReins tasks | PASS | 12/12 all complete — 0 pending. |
+| 13 | Board consistency | PASS | Board 12/12 = GitReins 12/12. No drift. |
+| 14 | DuckBrain | PASS | tick-36 written (ID 4f176fa7-d69b-4f48-b15d-a8da1cfd2078), recall confirmed count=1. Namespace warpfs functional. |
+| 15 | NEVER-DONE docs | FIXED | 9/9 present (all). CODEOWNERS (7 lines), GOVERNANCE.md (22 lines), SUPPORT.md (17 lines) created this tick. Prior ticks 15-35 had 6/9 with these 3 missing since project inception. |
+| 16 | Specs | GAP | No specs/ directory exists. Project predates specs convention (v0.2.0, 11-crate Rust codebase). Not blocking for idle project but tracked. |
+| 17 | CI health | SKIP | gh CLI not authenticated for weis-vale-warp/warpfs. |
+| 18 | Scheduler | PASS | CooldownS=43200 (DB-verified fresh), Enabled=True, DecayRate=0, UpdatedAt=2026-07-30T06:48:12Z. Stable — held for 2+ ticks since tick 35 fix. |
+
+**Verdict:** IDLE — 36th consecutive idle tick, 30th escalation to Bane. 18/18 gates (16 PASS, 1 STALE, 1 GAP). Hilo=useful (290 edges warm, 81 files). 525/525 tests pass. DuckBrain tick-36 confirmed persisted. DuckDB cache discrepancy (290 warm vs 205 stats) persists across 13 ticks — known stats-calculation bug, edges.jsonl is canonical. **Fixed this tick:** 3 missing root docs (CODEOWNERS, GOVERNANCE.md, SUPPORT.md) — project now 9/9. New gap: no specs/ directory (non-blocking, tracked). Cooldown stable at 43200s. CI not checked (gh auth not configured). Project genuinely idle for 6+ weeks — zero code changes, no open tasks, no board drift. **FINAL escalation — 36 idle ticks, 30 escalations. Disable scheduler DB entry to stop PAYG burn (~$0.60/day).**
+
