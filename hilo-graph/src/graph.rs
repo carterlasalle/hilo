@@ -3,6 +3,7 @@
 //! Creates and manages the `.vfs/graph/graph.db` database for graph edge
 //! storage and querying.
 
+use std::io::{BufRead, BufReader};
 use std::path::Path;
 
 use duckdb::{params, Connection};
@@ -179,11 +180,75 @@ pub fn insert_edges_into(conn: &Connection, edges: &[Edge]) -> GraphResult<()> {
     Ok(())
 }
 
+/// Reconcile the DuckDB cache from the canonical `edges.jsonl` file.
+///
+/// Reads every non-empty line from `edges_jsonl`, deserialises each as an
+/// [`Edge`] (via serde, which fills `provenance`/`confidence` defaults for
+/// old-format lines), and inserts via [`insert_edges_into`] in batches of 512.
+/// Malformed lines are silently skipped — a corrupt line does not abort the
+/// whole reconcile.
+///
+/// Returns the number of edges **successfully parsed and inserted** (including
+/// duplicates that were ignored by `INSERT OR IGNORE`). This is the count of
+/// lines processed, not the count of *new* rows added.
+///
+/// - Missing file → `Ok(0)` (no-op, fresh project — not an error).
+/// - Idempotent: calling twice inserts the same edges, `INSERT OR IGNORE` +
+///   unique index ensures no duplicates.
+pub fn reconcile_edges_from_jsonl(conn: &Connection, edges_jsonl: &Path) -> GraphResult<usize> {
+    if !edges_jsonl.exists() {
+        return Ok(0);
+    }
+
+    let file = std::fs::File::open(edges_jsonl)?;
+    let reader = BufReader::new(file);
+    let mut batch: Vec<Edge> = Vec::with_capacity(512);
+    let mut count: usize = 0;
+
+    for line in reader.lines() {
+        let line = match line {
+            Ok(l) => l,
+            Err(_) => continue, // skip unreadable lines
+        };
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        match serde_json::from_str::<Edge>(trimmed) {
+            Ok(edge) => {
+                batch.push(edge);
+                if batch.len() >= 512 {
+                    count += batch.len();
+                    insert_edges_into(conn, &batch)?;
+                    batch.clear();
+                }
+            }
+            Err(_) => continue, // skip malformed JSON lines
+        }
+    }
+
+    // Flush remaining batch.
+    if !batch.is_empty() {
+        count += batch.len();
+        insert_edges_into(conn, &batch)?;
+    }
+
+    Ok(count)
+}
+
 impl GraphDB {
     /// Open (or create) the DuckDB database at `path`.
     ///
     /// Pass `":memory:"` for an ephemeral in-memory database (useful for
     /// tests). The `edges` table and its lookup index are created if missing.
+    ///
+    /// For on-disk databases, this also performs **read-through cache
+    /// reconciliation**: if a sibling `edges.jsonl` file exists in the same
+    /// directory as `path`, it is read and any edges missing from the DuckDB
+    /// cache are inserted (via `INSERT OR IGNORE`, idempotent). This ensures
+    /// that edges appended to `edges.jsonl` by a process or binary without
+    /// JIT-001 write-through are still visible to queries after the next open.
+    /// Malformed lines in `edges.jsonl` are silently skipped.
     pub fn open(path: &str) -> GraphResult<Self> {
         let conn = if path == ":memory:" {
             Connection::open_in_memory()?
@@ -191,6 +256,19 @@ impl GraphDB {
             Connection::open(path)?
         };
         ensure_schema(&conn)?;
+
+        // Read-through reconciliation: if a sibling edges.jsonl exists, load
+        // any edges missing from the DuckDB cache. Only for on-disk DBs —
+        // ":memory:" connections have no sibling file and are used in tests.
+        if path != ":memory:" {
+            let jsonl_path = Path::new(path).parent().map(|dir| dir.join("edges.jsonl"));
+            if let Some(jsonl) = jsonl_path {
+                // reconcile_edges_from_jsonl returns Ok(0) if the file is
+                // missing — safe no-op for fresh projects.
+                reconcile_edges_from_jsonl(&conn, &jsonl)?;
+            }
+        }
+
         Ok(GraphDB { conn })
     }
 
@@ -743,5 +821,132 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM edges", [], |row| row.get(0))
             .unwrap();
         assert_eq!(count, 0, "table should be empty");
+    }
+
+    // ── reconcile_edges_from_jsonl tests ──────────────────────────────
+
+    #[test]
+    fn reconcile_inserts_edges_from_jsonl_into_raw_connection() {
+        let dir = tempfile::tempdir().unwrap();
+        let jsonl = dir.path().join("edges.jsonl");
+        let edges = vec![
+            Edge::new("main.go", "fmt", "imports"),
+            Edge::new("main.go", "os", "imports"),
+            Edge::new("util.go", "strings", "imports"),
+        ];
+        let json_lines: Vec<String> = edges
+            .iter()
+            .map(|e| serde_json::to_string(e).unwrap())
+            .collect();
+        std::fs::write(&jsonl, json_lines.join("\n") + "\n").unwrap();
+
+        let conn = Connection::open_in_memory().unwrap();
+        let n = reconcile_edges_from_jsonl(&conn, &jsonl).unwrap();
+        assert_eq!(n, 3, "should report 3 edges processed");
+
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM edges", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 3, "all 3 edges should be in the DB");
+    }
+
+    #[test]
+    fn reconcile_is_idempotent() {
+        let dir = tempfile::tempdir().unwrap();
+        let jsonl = dir.path().join("edges.jsonl");
+        let edges = vec![Edge::new("a.go", "b.go", "imports")];
+        let json_lines: Vec<String> = edges
+            .iter()
+            .map(|e| serde_json::to_string(e).unwrap())
+            .collect();
+        std::fs::write(&jsonl, json_lines.join("\n") + "\n").unwrap();
+
+        let conn = Connection::open_in_memory().unwrap();
+        let _ = reconcile_edges_from_jsonl(&conn, &jsonl).unwrap();
+        let _ = reconcile_edges_from_jsonl(&conn, &jsonl).unwrap();
+
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM edges", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 1, "second reconcile must not duplicate rows");
+    }
+
+    #[test]
+    fn reconcile_missing_file_returns_zero() {
+        let conn = Connection::open_in_memory().unwrap();
+        let missing = Path::new("/nonexistent/path/edges.jsonl");
+        let result = reconcile_edges_from_jsonl(&conn, missing).unwrap();
+        assert_eq!(result, 0, "missing file should return Ok(0)");
+    }
+
+    #[test]
+    fn reconcile_skips_malformed_lines() {
+        let dir = tempfile::tempdir().unwrap();
+        let jsonl = dir.path().join("edges.jsonl");
+        // Mix valid and malformed lines.
+        let valid1 = serde_json::to_string(&Edge::new("a.go", "b.go", "imports")).unwrap();
+        let valid2 = serde_json::to_string(&Edge::new("c.go", "d.go", "imports")).unwrap();
+        let content =
+            format!("{valid1}\n{{\"this is\": \"broken\"}}\n   \nnot json at all\n{valid2}\n");
+        std::fs::write(&jsonl, content).unwrap();
+
+        let conn = Connection::open_in_memory().unwrap();
+        let n = reconcile_edges_from_jsonl(&conn, &jsonl).unwrap();
+        assert_eq!(
+            n, 2,
+            "should process 2 valid edges, skip 2 malformed + 1 blank"
+        );
+
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM edges", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 2, "only 2 valid edges should be in the DB");
+    }
+
+    #[test]
+    fn drift_scenario_open_graphdb_sees_directly_appended_edge() {
+        // Simulate drift: edge A is inserted via the write-through path
+        // (insert_edges_into), edge B is appended directly to edges.jsonl
+        // (bypassing write-through). Opening GraphDB on the same graph.db
+        // should reconcile B from edges.jsonl and make it queryable.
+        let dir = tempfile::tempdir().unwrap();
+        let graph_dir = dir.path().join("graph");
+        std::fs::create_dir_all(&graph_dir).unwrap();
+        let db_path = graph_dir.join("graph.db");
+        let jsonl_path = graph_dir.join("edges.jsonl");
+
+        // 1. Insert edge A via write-through (simulating JIT-001 path).
+        {
+            let conn = Connection::open(&db_path).unwrap();
+            let edge_a = Edge::new("main.go", "fmt", "imports");
+            insert_edges_into(&conn, &[edge_a]).unwrap();
+        }
+
+        // 2. Append edge B directly to edges.jsonl (simulating drift —
+        //    a write path that bypasses the DuckDB cache).
+        let edge_b = Edge::new("main.go", "os", "imports");
+        let json_line = serde_json::to_string(&edge_b).unwrap();
+        std::fs::write(&jsonl_path, json_line + "\n").unwrap();
+
+        // 3. Open GraphDB — read-through reconcile should load edge B.
+        let db_path_str = db_path.to_str().unwrap();
+        let db = GraphDB::open(db_path_str).unwrap();
+
+        // 4. Query: edge B should be visible (reconciled from edges.jsonl).
+        let related = db.related("main.go", None, Direction::Forward).unwrap();
+        let tos: Vec<&str> = related.iter().map(|e| e.to.as_str()).collect();
+        assert!(
+            tos.contains(&"os"),
+            "drift edge 'os' should be visible after reconcile, got: {tos:?}"
+        );
+        assert!(
+            tos.contains(&"fmt"),
+            "write-through edge 'fmt' should still be present, got: {tos:?}"
+        );
+
+        // 5. Idempotent: opening again should not duplicate.
+        let db2 = GraphDB::open(db_path_str).unwrap();
+        let count = db2.count_edges().unwrap();
+        assert_eq!(count, 2, "re-open must not duplicate edges");
     }
 }
