@@ -155,3 +155,22 @@ tasks:
   status: complete
   created_at: '2026-06-28T23:35:08.859237+00:00'
   completed_at: '2026-06-28T23:49:51.545258+00:00'
+- id: jit-001-write-through-cache-sync
+  title: Write-through DuckDB cache sync in parse-and-diff trigger
+  criteria:
+  - "parse-and-diff trigger in hilo-triggers/src/engine.rs inserts new edges into\
+    \ the DuckDB graph cache (INSERT OR IGNORE) immediately after appending them to\
+    \ edges.jsonl \u2014 write path and read path are linked"
+  - raw trigger duckdb::Connection has edges table schema ensured (CREATE TABLE IF
+    NOT EXISTS + unique index) before insert, since mount.rs opens it without GraphDB::open
+  - new hilo-graph public helper (insert_edges_into / ensure_schema) reuses the existing
+    schema/insert logic without duplicating SQL
+  - 'unit test proves: edge appended to edges.jsonl by parse-and-diff path is immediately
+    queryable from the DuckDB connection'
+  - cargo check --workspace passes
+  - cargo test --workspace passes (530+ tests, no regressions)
+  - cargo fmt --all clean
+  - cargo clippy --workspace -- -D warnings clean
+  status: complete
+  created_at: '2026-08-01T13:44:22.702999+00:00'
+  completed_at: '2026-08-01T13:45:40.695390+00:00'
