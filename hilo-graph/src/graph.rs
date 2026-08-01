@@ -84,6 +84,101 @@ pub struct ModuleStats {
     pub test_coverage_pct: f64,
 }
 
+// ──────────── Free functions for raw DuckDB connections ────────────
+
+/// Ensure the `edges` table schema exists on a raw DuckDB connection.
+///
+/// Creates the table (IF NOT EXISTS), auto-migrates old 3-column schemas,
+/// and creates lookup indexes. All statements are idempotent — safe to call
+/// on a connection that already has the schema, including connections opened
+/// via plain `duckdb::Connection::open` (without `GraphDB::open`).
+pub fn ensure_schema(conn: &Connection) -> GraphResult<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS edges (\
+            \"from\" TEXT NOT NULL,\
+            \"to\" TEXT NOT NULL,\
+            rel TEXT NOT NULL,\
+            provenance TEXT NOT NULL DEFAULT 'ast_exact',\
+            confidence REAL NOT NULL DEFAULT 1.0\
+         )",
+        params![],
+    )?;
+
+    // Auto-migrate: if the table was created with the old 3-column
+    // schema (pre-v0.2), add the missing columns. DuckDB's
+    // `pragma_table_info` lets us check without parsing CREATE TABLE.
+    migrate_schema(conn)?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_edges_from_rel ON edges(\"from\", rel)",
+        params![],
+    )?;
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_edges_unique ON edges(\"from\", \"to\", rel, provenance)",
+        params![],
+    )?;
+    Ok(())
+}
+
+/// Check for and apply schema migrations for the `edges` table.
+///
+/// Currently handles one migration:
+/// - v0.1 (3-column) → v0.2 (5-column): add `provenance` and `confidence`.
+///
+/// Uses `pragma_table_info('edges')` to check column existence. If
+/// `provenance` is missing, both columns are added with ALTER TABLE.
+fn migrate_schema(conn: &Connection) -> GraphResult<()> {
+    // Check if 'provenance' column exists.
+    let has_provenance: bool = {
+        let mut stmt = conn
+            .prepare("SELECT count(*) FROM pragma_table_info('edges') WHERE name = 'provenance'")?;
+        let count: i64 = stmt.query_row(params![], |row| row.get(0))?;
+        count > 0
+    };
+
+    if !has_provenance {
+        // Old 3-column schema → add provenance + confidence.
+        // DuckDB doesn't support ADD COLUMN with NOT NULL constraints,
+        // so we add nullable columns with defaults and then backfill.
+        conn.execute(
+            "ALTER TABLE edges ADD COLUMN provenance TEXT DEFAULT 'ast_exact'",
+            params![],
+        )?;
+        conn.execute(
+            "ALTER TABLE edges ADD COLUMN confidence REAL DEFAULT 1.0",
+            params![],
+        )?;
+        // Backfill any NULLs (shouldn't be any due to DEFAULT, but be safe).
+        conn.execute(
+            "UPDATE edges SET provenance = 'ast_exact' WHERE provenance IS NULL",
+            params![],
+        )?;
+        conn.execute(
+            "UPDATE edges SET confidence = 1.0 WHERE confidence IS NULL",
+            params![],
+        )?;
+    }
+
+    Ok(())
+}
+
+/// Insert edges into a raw DuckDB connection (INSERT OR IGNORE, idempotent).
+///
+/// Ensures the schema exists first (idempotent `CREATE TABLE IF NOT EXISTS`
+/// and indexes), then inserts each edge with `INSERT OR IGNORE`. Safe to call
+/// on connections opened via plain `duckdb::Connection::open` (without
+/// `GraphDB::open`).
+pub fn insert_edges_into(conn: &Connection, edges: &[Edge]) -> GraphResult<()> {
+    ensure_schema(conn)?;
+    for edge in edges {
+        conn.execute(
+            "INSERT OR IGNORE INTO edges (\"from\", \"to\", rel, provenance, confidence) VALUES (?, ?, ?, ?, ?)",
+            params![edge.from, edge.to, edge.rel, edge.provenance, edge.confidence],
+        )?;
+    }
+    Ok(())
+}
+
 impl GraphDB {
     /// Open (or create) the DuckDB database at `path`.
     ///
@@ -95,98 +190,16 @@ impl GraphDB {
         } else {
             Connection::open(path)?
         };
-        Self::init_schema(&conn)?;
+        ensure_schema(&conn)?;
         Ok(GraphDB { conn })
     }
 
-    /// Create the `edges` table and indexes.
-    ///
-    /// `\"from\"` and `\"to\"` are quoted because they are SQL keywords.
-    ///
-    /// The schema includes `provenance` (TEXT, default `'ast_exact'`) and
-    /// `confidence` (REAL, default `1.0`) columns. If the table already
-    /// exists with the old 3-column schema (no `provenance`), it is
-    /// auto-migrated by adding the missing columns with `ALTER TABLE`.
-    fn init_schema(conn: &Connection) -> GraphResult<()> {
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS edges (\
-                \"from\" TEXT NOT NULL,\
-                \"to\" TEXT NOT NULL,\
-                rel TEXT NOT NULL,\
-                provenance TEXT NOT NULL DEFAULT 'ast_exact',\
-                confidence REAL NOT NULL DEFAULT 1.0\
-             )",
-            params![],
-        )?;
-
-        // Auto-migrate: if the table was created with the old 3-column
-        // schema (pre-v0.2), add the missing columns. DuckDB's
-        // `pragma_table_info` lets us check without parsing CREATE TABLE.
-        Self::migrate_schema(conn)?;
-
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_edges_from_rel ON edges(\"from\", rel)",
-            params![],
-        )?;
-        conn.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_edges_unique ON edges(\"from\", \"to\", rel, provenance)",
-            params![],
-        )?;
-        Ok(())
-    }
-
-    /// Check for and apply schema migrations for the `edges` table.
-    ///
-    /// Currently handles one migration:
-    /// - v0.1 (3-column) → v0.2 (5-column): add `provenance` and `confidence`.
-    ///
-    /// Uses `pragma_table_info('edges')` to check column existence. If
-    /// `provenance` is missing, both columns are added with ALTER TABLE.
-    fn migrate_schema(conn: &Connection) -> GraphResult<()> {
-        // Check if 'provenance' column exists.
-        let has_provenance: bool = {
-            let mut stmt = conn.prepare(
-                "SELECT count(*) FROM pragma_table_info('edges') WHERE name = 'provenance'",
-            )?;
-            let count: i64 = stmt.query_row(params![], |row| row.get(0))?;
-            count > 0
-        };
-
-        if !has_provenance {
-            // Old 3-column schema → add provenance + confidence.
-            // DuckDB doesn't support ADD COLUMN with NOT NULL constraints,
-            // so we add nullable columns with defaults and then backfill.
-            conn.execute(
-                "ALTER TABLE edges ADD COLUMN provenance TEXT DEFAULT 'ast_exact'",
-                params![],
-            )?;
-            conn.execute(
-                "ALTER TABLE edges ADD COLUMN confidence REAL DEFAULT 1.0",
-                params![],
-            )?;
-            // Backfill any NULLs (shouldn't be any due to DEFAULT, but be safe).
-            conn.execute(
-                "UPDATE edges SET provenance = 'ast_exact' WHERE provenance IS NULL",
-                params![],
-            )?;
-            conn.execute(
-                "UPDATE edges SET confidence = 1.0 WHERE confidence IS NULL",
-                params![],
-            )?;
-        }
-
-        Ok(())
-    }
-
     /// Insert multiple edges into the database using a prepared statement.
+    ///
+    /// Delegates to [`insert_edges_into`] (the free function) so the INSERT
+    /// SQL is defined in exactly one place.
     pub fn insert_edges(&self, edges: &[Edge]) -> GraphResult<()> {
-        for edge in edges {
-            self.conn.execute(
-                "INSERT OR IGNORE INTO edges (\"from\", \"to\", rel, provenance, confidence) VALUES (?, ?, ?, ?, ?)",
-                params![edge.from, edge.to, edge.rel, edge.provenance, edge.confidence],
-            )?;
-        }
-        Ok(())
+        insert_edges_into(&self.conn, edges)
     }
 
     /// Return the total number of rows in `edges` (`SELECT COUNT(*) FROM edges`).
@@ -653,5 +666,82 @@ mod tests {
         let db = GraphDB::open(":memory:").unwrap();
         let results = db.impact_or_parse(&path, 0).unwrap();
         assert!(results.is_empty());
+    }
+
+    // ── Free-function tests: ensure_schema + insert_edges_into ──────────
+
+    #[test]
+    fn insert_edges_into_raw_connection_inserts_edges() {
+        // A raw connection that never had GraphDB::open called — schema
+        // must be auto-ensured by insert_edges_into.
+        let conn = Connection::open_in_memory().unwrap();
+        let edges = vec![
+            Edge::new("a.go", "b.go", "imports"),
+            Edge::new("a.go", "c.go", "imports"),
+        ];
+        insert_edges_into(&conn, &edges).unwrap();
+
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM edges", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 2, "both edges should be inserted");
+    }
+
+    #[test]
+    fn insert_edges_into_is_idempotent_on_duplicates() {
+        let conn = Connection::open_in_memory().unwrap();
+        let edges = vec![Edge::new("a.go", "b.go", "imports")];
+
+        insert_edges_into(&conn, &edges).unwrap();
+        insert_edges_into(&conn, &edges).unwrap(); // duplicate
+
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM edges", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(
+            count, 1,
+            "duplicate insert via INSERT OR IGNORE must not add a row"
+        );
+    }
+
+    #[test]
+    fn insert_edges_into_creates_schema_on_raw_connection() {
+        // Verify that the edges table and indexes exist after
+        // insert_edges_into on a connection that never had schema init.
+        let conn = Connection::open_in_memory().unwrap();
+        let edges = vec![Edge::new("x.go", "y.go", "imports")];
+        insert_edges_into(&conn, &edges).unwrap();
+
+        // Table exists with all 5 columns.
+        let col_count: i64 = conn
+            .query_row(
+                "SELECT count(*) FROM pragma_table_info('edges')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(col_count, 5, "edges table should have 5 columns");
+
+        // Data is queryable.
+        let to_val: String = conn
+            .query_row(
+                "SELECT \"to\" FROM edges WHERE \"from\" = 'x.go'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(to_val, "y.go");
+    }
+
+    #[test]
+    fn ensure_schema_is_idempotent() {
+        let conn = Connection::open_in_memory().unwrap();
+        ensure_schema(&conn).unwrap();
+        ensure_schema(&conn).unwrap(); // second call must not error
+
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM edges", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(count, 0, "table should be empty");
     }
 }

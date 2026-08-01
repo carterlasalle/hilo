@@ -21,7 +21,7 @@ pub mod signal;
 
 pub use classify::{classify_file, infer_feature, Classification};
 pub use error::{GraphError, GraphResult};
-pub use graph::{Direction, GraphDB, ModuleStats};
+pub use graph::{ensure_schema, insert_edges_into, Direction, GraphDB, ModuleStats};
 pub use impact::{compute_impact, compute_impact_with_external, ImpactFile, ImpactResult};
 pub use parser::{Language, Parser};
 pub use provenance::Provenance;

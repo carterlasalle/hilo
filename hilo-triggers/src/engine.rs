@@ -472,6 +472,16 @@ fn parse_and_diff_sync(
                 info!("[trigger] parse-and-diff: failed to append edges: {e}");
             }
         }
+
+        // Write-through: also insert into the DuckDB graph cache so read
+        // paths (hilo graph related/stats) see them immediately. INSERT OR
+        // IGNORE is idempotent; ensure_schema is a no-op if the table
+        // already exists (covers raw connections opened without GraphDB::open).
+        if let Some(conn) = db_conn {
+            if let Err(e) = hilo_graph::insert_edges_into(conn, &new_edges) {
+                info!("[trigger] parse-and-diff: failed to sync edges to DuckDB cache: {e}");
+            }
+        }
     }
 
     // 6. Set user.vfs.last_modified xattr.
@@ -1283,6 +1293,53 @@ mod tests {
 
         // Cache should have an entry.
         assert!(cache.contains_key(&go_file), "cache should have entry");
+    }
+
+    #[test]
+    fn test_parse_diff_writes_through_to_duckdb_cache() {
+        // JIT-001: After parse_and_diff_sync, the DuckDB connection should
+        // have the new edges — proving write-through from edges.jsonl path
+        // to the graph cache (read path).
+        let dir = tempfile::TempDir::new().unwrap();
+        let go_file = dir.path().join("main.go");
+        std::fs::write(&go_file, "package main\nimport \"fmt\"\nimport \"os\"\n").unwrap();
+
+        let mut cache = HashMap::new();
+        let conn = duckdb::Connection::open_in_memory().unwrap();
+        // Do NOT call ensure_schema — simulate the mount.rs scenario where
+        // the raw connection is opened without GraphDB::open. The
+        // write-through must ensure the schema itself.
+        let conn_opt = Some(conn);
+
+        let event = FileEvent {
+            path: go_file.clone(),
+            event_type: EventType::Write,
+            timestamp: 0,
+        };
+        let cfg = parse_diff_cfg(None);
+
+        parse_and_diff_sync(
+            &cfg,
+            &event,
+            &mut cache,
+            &conn_opt,
+            &Some(dir.path().to_path_buf()),
+        );
+
+        // The edges table must exist and contain the parsed import edges.
+        let conn = conn_opt.as_ref().unwrap();
+        let go_path_str = go_file.display().to_string();
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM edges WHERE \"from\" = ?",
+                [&go_path_str],
+                |row| row.get(0),
+            )
+            .expect("DuckDB should have edges table with parsed edges");
+        assert!(
+            count >= 2,
+            "DuckDB cache should have both import edges for main.go, got {count}"
+        );
     }
 
     #[test]
