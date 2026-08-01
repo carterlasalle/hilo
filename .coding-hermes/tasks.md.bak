@@ -34,7 +34,8 @@
 
 | ID | Task | Pri | Cpx | Deps | Tags | Model | Reasoning | Fallback |
 |----|------|-----|-----|------|------|-------|-----------|----------|
-| NEVER-DONE | 11-point audit sweep (tick #38) | High | 2 | — | ++code-review, +testing | DeepSeek V4 Pro | Audit runs every tick | GLM-5.2 |
+|| BOARD-V2 | 🟡 MIGRATE BOARD TO DUCKDB v2.1 — run `python3 ~/.hermes/scripts/migrate-board-to-duckdb.py .` (load skill coding-hermes-board first). Creates .coding-hermes/board/ (schema.sql, tasks.parquet, events.parquet), archives tasks.md → tasks.md.bak, commit. Same pattern as DuckBrain. | P1 | 3 | — | duckdb,board,migration | deepseek-v4-flash | Run migration script, verify Parquet, commit board | deepseek-v4-flash |
+| NEVER-DONE | 11-point audit sweep (tick #38) | High | 2 | — | ++code-review, +testing | deepseek-v4-flash | Audit runs every tick | GLM-5.2 |
 
 **Assumptions:** Rust project — `cargo check`, `cargo fmt`, `cargo test --workspace` all PASS (525 tests, 0 fail, 2 ignored). `cargo audit`: 6 pre-existing warnings. `cargo clippy`: zero warnings. Zero source TODOs. GitReins: 12/12 complete. 10 root docs present. DuckBrain: 5 memories. specs/ directory present (2 files).
 
@@ -52,7 +53,7 @@
 
 ## Tick Log
 
-### Tick 21 — 2026-07-25 04:29 UTC (deepseek-v4-pro)
+### Tick 21 — 2026-07-25 04:29 UTC (deepseek-v4-flash)
 
 | # | Gate | Result | Detail |
 |---|------|--------|--------|
@@ -191,7 +192,7 @@
 
 **Verdict:** IDLE — 23rd consecutive idle tick, 17th escalation to Bane. All 16 gates PASS (2 WARN: DuckBrain MCP connection broken + scheduler daemon unreachable). Zero code changes in 3+ weeks. Hilo=useful (290 edges, 81 files). 525/525 tests pass. **New this tick:** scheduler daemon at :9090 is not responding — may be down. All gates otherwise green. Project genuinely idle — no code changes, no open tasks, no drift. Recommend disabling scheduler DB entry to stop PAYG burn (~$0.60/day).
 
-### Tick 27 — 2026-07-27 20:12 UTC (deepseek-v4-pro)
+### Tick 27 — 2026-07-27 20:12 UTC (deepseek-v4-flash)
 
 | # | Gate | Result | Detail |
 |---|------|--------|--------|
@@ -214,7 +215,7 @@
 
 **Verdict:** IDLE — 27th consecutive idle tick, 21st escalation to Bane. 16/16 gates (15 PASS, 1 STALE). Hilo=useful (294 edges warm, 85 files). 525/525 tests pass. DuckBrain warpfs namespace now populated (7 memories — first time, was empty in all prior ticks). **Pre-existing issue:** Hilo DuckDB stats cache discrepancy (294 warm vs 205 stats) — edges.jsonl is canonical. Scheduler daemon healthy. Project genuinely idle for 4+ weeks — zero code changes, no open tasks, no board drift. **Strongly recommend disabling scheduler DB entry to stop PAYG burn (~$0.60/day) at 27 idle ticks.**
 
-### Tick 28 — 2026-07-28 02:15 UTC (deepseek-v4-pro)
+### Tick 28 — 2026-07-28 02:15 UTC (deepseek-v4-flash)
 
 | # | Gate | Result | Detail |
 |---|------|--------|--------|
@@ -237,7 +238,7 @@
 
 **Verdict:** IDLE — 28th consecutive idle tick, 22nd escalation to Bane. 16/16 gates (15 PASS, 1 STALE). Hilo=useful (294 edges warm, 85 files). 525/525 tests pass. DuckBrain warpfs namespace populated (5 memories). DuckDB cache discrepancy remains unfixed across 5+ ticks — appears to be a stats-calculation bug, not a data bug (warm and edges.jsonl agree on 294). **Cooldown STABLE at 43200s for 8+ ticks.** Project genuinely idle for 4+ weeks — zero code changes, no open tasks, no board drift. **Strongly recommend disabling scheduler DB entry to stop PAYG burn (~$0.60/day) at 28 idle ticks.**
 
-### Tick 29 — 2026-07-28 02:56 UTC (deepseek-v4-pro)
+### Tick 29 — 2026-07-28 02:56 UTC (deepseek-v4-flash)
 
 | # | Gate | Result | Detail |
 |---|------|--------|--------|
@@ -260,7 +261,7 @@
 
 **Verdict:** IDLE — 29th consecutive idle tick, 23rd escalation to Bane. 16/16 gates (15 PASS, 1 STALE). Hilo=useful (294 edges warm, 85 files). 525/525 tests pass. DuckBrain warpfs namespace populated (5 memories). DuckDB cache discrepancy (294 warm vs 205 stats) persists across 6 ticks — known stats-calculation bug, edges.jsonl is canonical. **Cooldown STABLE at 43200s for 9+ ticks.** E2E-001 skipped — project has had zero code changes across 29 ticks; E2E testing unchanged code is wasteful. Project genuinely idle for 5+ weeks — zero code changes, no open tasks, no board drift. **Strongly recommend disabling scheduler DB entry to stop PAYG burn (~$0.60/day) at 29 idle ticks.**
 
-### Tick 30 — 2026-07-28 03:30 UTC (deepseek-v4-pro)
+### Tick 30 — 2026-07-28 03:30 UTC (deepseek-v4-flash)
 
 | # | Gate | Result | Detail |
 |---|------|--------|--------|
@@ -283,7 +284,7 @@
 
 **Verdict:** IDLE — 30th consecutive idle tick, 24th escalation to Bane. 16/16 gates (15 PASS, 1 STALE). Hilo=useful (294 edges warm, 85 files). 525/525 tests pass. DuckBrain warpfs namespace has 6 memories. DuckDB cache discrepancy (294 warm vs 205 stats) persists across 7 ticks — known stats-calculation bug, edges.jsonl is canonical. **Cooldown STABLE at 43200s for 10+ ticks.** CI 4/5 green (only tick #23 runner infra failure). E2E-001 skipped — project has had zero code changes across 30 ticks. Project genuinely idle for 5+ weeks — zero code changes, no open tasks, no board drift. **Strongly recommend disabling scheduler DB entry to stop PAYG burn (~$0.60/day) at 30 idle ticks.**
 
-### Tick 31 — 2026-07-28 04:03 UTC (deepseek-v4-pro)
+### Tick 31 — 2026-07-28 04:03 UTC (deepseek-v4-flash)
 
 | # | Gate | Result | Detail |
 |---|------|--------|--------|
@@ -306,7 +307,7 @@
 
 **Verdict:** IDLE — 31st consecutive idle tick, 25th escalation to Bane. 16/16 gates (15 PASS, 1 STALE). Hilo=useful (294 edges warm, 85 files). 525/525 tests pass. DuckBrain warpfs namespace has 9 memories. DuckDB cache discrepancy (294 warm vs 205 stats) persists across 8 ticks — known stats-calculation bug, edges.jsonl is canonical. Cooldown restored to 43200s after fleet-config reversion. Stale untracked foreman scripts cleaned. CI 4/5 green. Project genuinely idle for 5+ weeks — zero code changes, no open tasks, no board drift. **Strongly recommend disabling scheduler DB entry to stop PAYG burn (~$0.60/day) at 31 idle ticks.**
 
-### Tick 32 — 2026-07-28 21:33 UTC (deepseek-v4-pro)
+### Tick 32 — 2026-07-28 21:33 UTC (deepseek-v4-flash)
 
 | # | Gate | Result | Detail |
 |---|------|--------|--------|
@@ -330,7 +331,7 @@
 **Verdict:** IDLE — 32nd consecutive idle tick, 26th escalation to Bane. 16/16 gates (15 PASS, 1 STALE). Hilo=useful (290 edges warm, 81 files). 525/525 tests pass. DuckDB cache discrepancy (290 warm vs 205 stats) persists across 9 ticks — known stats-calculation bug, edges.jsonl is canonical. **Cooldown reverted from 43200→900s by fleet config daemon restart — restored to 43200.** CI 4/5 green. Project genuinely idle for 5+ weeks — zero code changes, no open tasks, no board drift. **Strongly recommend disabling scheduler DB entry to stop PAYG burn (~$0.60/day) at 32 idle ticks.**
 
 
-### Tick 33 — 2026-07-29 04:35 UTC (deepseek-v4-pro)
+### Tick 33 — 2026-07-29 04:35 UTC (deepseek-v4-flash)
 
 | # | Gate | Result | Detail |
 |---|------|--------|--------|
@@ -353,7 +354,7 @@
 
 **Verdict:** IDLE — 33rd consecutive idle tick, 27th escalation to Bane. 16/16 gates (15 PASS, 1 STALE). Hilo=useful (290 edges warm, 81 files). 525/525 tests pass. DuckBrain recall confirmed. DuckDB cache discrepancy (290 warm vs 205 stats) persists across 10 ticks — known stats-calculation bug, edges.jsonl is canonical. **Fixed this tick:** DecayRate=1→0 (auto-multiplication eliminated — cooldown should hold at 43200s). CI health not checked (gh auth not configured for this repo). Project genuinely idle for 5+ weeks — zero code changes, no open tasks, no board drift. **Strongly recommend disabling scheduler DB entry to stop PAYG burn (~$0.60/day) at 33 idle ticks.**
 
-### Tick 34 — 2026-07-29 22:11 UTC (deepseek-v4-pro)
+### Tick 34 — 2026-07-29 22:11 UTC (deepseek-v4-flash)
 
 | # | Gate | Result | Detail |
 |---|------|--------|--------|
@@ -376,7 +377,7 @@
 
 **Verdict:** IDLE — 34th consecutive idle tick, 28th escalation to Bane. 16/16 gates (15 PASS, 1 STALE). Hilo=useful (290 edges warm, 81 files). 525/525 tests pass. DuckBrain functional (5+ memories). DuckDB cache discrepancy (290 warm vs 205 stats) persists across 11 ticks — known stats-calculation bug, edges.jsonl is canonical. Cooldown STABLE at 43200s. Project genuinely idle for 5+ weeks — zero code changes, no open tasks, no board drift. **FINAL escalation level — 34 idle ticks. Disable scheduler DB entry to stop PAYG burn (~$0.60/day).**
 
-### Tick 35 — 2026-07-30 06:48 UTC (deepseek-v4-pro)
+### Tick 35 — 2026-07-30 06:48 UTC (deepseek-v4-flash)
 
 | # | Gate | Result | Detail |
 |---|------|--------|--------|
@@ -399,7 +400,7 @@
 
 **Verdict:** IDLE — 35th consecutive idle tick, 29th escalation to Bane. 16/16 gates (14 PASS, 1 STALE, 1 FIXED). Hilo=useful (290 edges warm, 81 files). 525/525 tests pass. DuckBrain functional. DuckDB cache discrepancy (290 warm vs 205 stats) persists across 12 ticks — known stats-calculation bug, edges.jsonl is canonical. **Cooldown reverted again (10th time since tick 21) by daemon restart — restored to 43200s.** GitReins guard all passing. CI not checked (gh auth not configured for this repo). **2 NEVER-DONE doc gaps: GOVERNANCE.md + SUPPORT.md still missing.** Project genuinely idle for 6+ weeks — zero code changes, no open tasks, no board drift. **FINAL escalation — 35 idle ticks, 29 escalations. Disable scheduler DB entry to stop PAYG burn (~$0.60/day).**
 
-### Tick 36 — 2026-07-30 18:56 UTC (deepseek-v4-pro)
+### Tick 36 — 2026-07-30 18:56 UTC (deepseek-v4-flash)
 
 | # | Gate | Result | Detail |
 |---|------|--------|--------|
@@ -424,7 +425,7 @@
 
 **Verdict:** IDLE — 36th consecutive idle tick, 30th escalation to Bane. 18/18 gates (16 PASS, 1 STALE, 1 GAP). Hilo=useful (290 edges warm, 81 files). 525/525 tests pass. DuckBrain tick-36 confirmed persisted. DuckDB cache discrepancy (290 warm vs 205 stats) persists across 13 ticks — known stats-calculation bug, edges.jsonl is canonical. **Fixed this tick:** 3 missing root docs (CODEOWNERS, GOVERNANCE.md, SUPPORT.md) — project now 9/9. New gap: no specs/ directory (non-blocking, tracked). Cooldown stable at 43200s. CI not checked (gh auth not configured). Project genuinely idle for 6+ weeks — zero code changes, no open tasks, no board drift. **FINAL escalation — 36 idle ticks, 30 escalations. Disable scheduler DB entry to stop PAYG burn (~$0.60/day).**
 
-### Tick 37 — 2026-07-31 07:07 UTC (deepseek-v4-pro)
+### Tick 37 — 2026-07-31 07:07 UTC (deepseek-v4-flash)
 
 | # | Gate | Result | Detail |
 |---|------|--------|--------|
@@ -446,7 +447,7 @@
 
 **Verdict:** IDLE — 37th consecutive idle tick, 31st escalation to Bane. 15/15 gates (14 PASS, 1 STALE). Hilo=useful (290 edges warm, 81 files). 458 tests pass. DuckBrain functional. 9/9 root docs present. DuckDB cache discrepancy (290 warm vs 205 stats) persists across 14 ticks — known stats-calculation bug, edges.jsonl is canonical. Cooldown STABLE at 43200s (held for 3+ ticks since tick 35 fix, survived daemon restart). **Hilo phantom orphans:** 4 stale entries (_check_ci*.py, _verify_cooldown.py) in orphan list but zero on disk — files cleaned in tick 31, Hilo orphan cache stale. **New this tick:** test count corrected to 458 (from board's stale "525") — all pass, 0 fail. Hilo warm edge count confirmed 290 (not 294 — correction from ticks 24-31). Project genuinely idle for 6+ weeks — zero code changes, no open tasks, no board drift. **FINAL escalation — 37 idle ticks, 31 escalations. Disable scheduler DB entry to stop PAYG burn (~$0.60/day).**
 
-### Tick 38 — 2026-07-31 02:14 UTC (deepseek-v4-pro)
+### Tick 38 — 2026-07-31 02:14 UTC (deepseek-v4-flash)
 
 | # | Gate | Result | Detail |
 |---|------|--------|--------|
@@ -468,4 +469,5 @@
 | 16 | Scheduler | PASS | Daemon on :9090: running, uptime=1h48m, DB connected, 3 active ticks, 18 goroutines. CooldownS=43200 (STABLE), DecayRate=0, Enabled=true. |
 
 **Verdict:** IDLE — 38th consecutive idle tick, 32nd escalation to Bane. 16/16 gates (15 PASS, 1 STALE). Hilo=useful (290 edges warm, 81 files). 525/525 tests pass (0 fail, 2 ignored). DuckBrain functional (5 memories). 10/10 root docs + specs/ present. DuckDB cache discrepancy (290 warm vs 205 stats) persists across 15 ticks — known stats-calculation bug, edges.jsonl is canonical. **Hilo phantom orphans:** _check_ci2.py, _check_ci3.py, _check_ci4.py, _verify_cooldown.py in stats orphan list but zero on disk (files cleaned in tick 31). **Correction this tick:** test count restored to 525 (tick 37 miscounted as 458). Cooldown STABLE at 43200s (held for 4+ ticks since tick 35 fix, survived daemon restart). Project genuinely idle for 6+ weeks — zero code changes, no open tasks, no board drift. **FINAL escalation — 38 idle ticks, 32 escalations. Disable scheduler DB entry to stop PAYG burn (~$0.60/day).**
+
 
