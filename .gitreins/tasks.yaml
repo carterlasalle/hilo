@@ -174,3 +174,25 @@ tasks:
   status: complete
   created_at: '2026-08-01T13:44:22.702999+00:00'
   completed_at: '2026-08-01T13:45:40.695390+00:00'
+- id: jit-002-read-through-cache-reconciliation
+  title: Read-through cache reconciliation on graph queries
+  criteria:
+  - "GraphDB::open on an on-disk DB reconciles the DuckDB cache from the sibling edges.jsonl\
+    \ (read-through) \u2014 edges appended by any write path (git hooks, manual edits)\
+    \ become queryable after the next open"
+  - 'Reconciliation is incremental: only missing edges are inserted (INSERT OR IGNORE
+    + unique index), not a full rebuild'
+  - "Missing edges.jsonl file returns Ok(0) \u2014 safe no-op for fresh projects,\
+    \ not an error"
+  - Malformed and blank lines in edges.jsonl are skipped without aborting the reconcile
+  - "Reconcile is idempotent \u2014 calling twice inserts no duplicate rows"
+  - ':memory: connections skip reconciliation (no sibling file exists for in-memory
+    DBs)'
+  - Public helper reconcile_edges_from_jsonl is exported from hilo-graph lib.rs
+  - cargo check --workspace passes
+  - cargo test --workspace passes (535+ tests, no regressions)
+  - cargo fmt --all clean
+  - cargo clippy --workspace -- -D warnings clean
+  status: complete
+  created_at: '2026-08-01T17:56:59.268357+00:00'
+  completed_at: '2026-08-01T17:57:03.041646+00:00'
