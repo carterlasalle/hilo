@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SITREP — Hilo / WarpFS · 2026-08-02</title>
+<style>
+  :root {
+    --bg: #0d1117; --card: #161b22; --border: #30363d; --text: #e6edf3;
+    --green: #3fb950; --yellow: #d29922; --red: #f85149; --blue: #58a6ff; --muted: #8b949e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; padding: 2rem; max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 1.9rem; margin-bottom: .2rem; }
+  h2 { font-size: 1.25rem; color: var(--blue); margin: 2.2rem 0 .8rem; border-bottom: 1px solid var(--border); padding-bottom: .4rem; }
+  h3 { font-size: 1.05rem; margin: 1.2rem 0 .5rem; color: var(--text); }
+  .sub { color: var(--muted); font-size: .95rem; margin-bottom: 1.5rem; }
+  .status-banner { display: inline-block; background: rgba(63,185,80,.12); border: 1px solid var(--green); color: var(--green); border-radius: 8px; padding: .5rem 1rem; font-weight: 600; margin: .6rem 0 1.2rem; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem 1.3rem; margin: .8rem 0; }
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; width: 28%; }
+  .ok { color: var(--green); font-weight: 600; }
+  .warn { color: var(--yellow); font-weight: 600; }
+  .mono { font-family: 'SF Mono', Consolas, monospace; font-size: .85rem; background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: .8rem 1rem; overflow-x: auto; white-space: pre; }
+  .tag { display: inline-block; background: rgba(88,166,255,.12); color: var(--blue); border: 1px solid rgba(88,166,255,.4); border-radius: 20px; padding: .15rem .7rem; font-size: .8rem; margin: .15rem .2rem .15rem 0; }
+  .screenshot { width: 100%; border: 1px solid var(--border); border-radius: 10px; margin: .6rem 0; }
+  .foot { color: var(--muted); font-size: .82rem; margin-top: 2.5rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 700px) { .grid2 { grid-template-columns: 1fr; } body { padding: 1rem; } }
+</style>
+</head>
+<body>
+
+<h1>🪡 SITREP — Hilo / WarpFS</h1>
+<div class="sub">Situation Report (PRD-style) · 2026-08-02 · Prepared by Hermes foreman · <span class="mono" style="display:inline;padding:.1rem .4rem;">gethilo/hilo @ cc46bfe</span></div>
+<span class="status-banner">🟢 STABLE — v0.2.0 · 0 open tasks · maintenance mode</span>
+
+<h2>1 · Executive Summary</h2>
+<div class="card">
+<table>
+  <tr><th>Project</th><td>Hilo (WarpFS) — agent-first code knowledge graph &amp; metadata filesystem</td></tr>
+  <tr><th>Repo / Branch</th><td><span class="mono" style="display:inline;padding:.05rem .35rem;">github.com/gethilo/hilo</span> · <span class="mono" style="display:inline;padding:.05rem .35rem;">master</span></td></tr>
+  <tr><th>Version</th><td>v0.2.0 (Rinnegan batch shipped)</td></tr>
+  <tr><th>Graph</th><td><span class="ok">325 edges / 140 files</span> — JIT-fresh (write-through + read-through live)</td></tr>
+  <tr><th>Tests</th><td><span class="ok">535 passed / 0 failed</span> · clippy 0 warnings · fmt clean</td></tr>
+  <tr><th>CI</th><td><span class="ok">6/6 recent runs green</span> · 0 open issues / PRs</td></tr>
+  <tr><th>Board</th><td>All real tasks complete · 48 ticks (6 idle) · cooldown 7200s</td></tr>
+</table>
+</div>
+<p style="color:var(--muted);font-size:.95rem;"><b>One-line sitrep:</b> Hilo is feature-complete at v0.2.0 — 26 languages, JIT-fresh graph cache, all quality gates green — idle pending next direction from Bane.</p>
+
+<h2>2 · Mission &amp; Product</h2>
+<div class="card">
+<p>Virtual filesystem for agentic workflows: clone a repo → mount → agents query metadata (xattrs, JSONL inventory, DuckDB graph) via native tools or an MCP server. <b>File content is never modified — metadata, not injection.</b></p>
+<p style="margin-top:.6rem;">
+  <span class="tag">FUSE mount</span><span class="tag">MCP server · 15 tools</span><span class="tag">CLI shim (hilo)</span><span class="tag">UniFFI bindings</span><span class="tag">xattrs user.vfs.*</span><span class="tag">JSONL inventory</span><span class="tag">DuckDB cache</span><span class="tag">Git / S3 / local backends</span><span class="tag">inotify triggers</span>
+</p>
+<p style="margin-top:.6rem;color:var(--muted);font-size:.9rem;"><b>Languages (26):</b> Rust, Go, Python, TypeScript, JS, Java, C, C++, Ruby, C#, Kotlin, PHP, Swift, Elixir, Haskell, Erlang, Scala, Zig, Lua, Dart, Clojure, OCaml, R, Julia, Elm, Nim</p>
+</div>
+
+<h2>3 · Live State (measured 2026-08-02)</h2>
+<div class="card">
+<table>
+  <tr><th>Graph edges</th><td><span class="ok">325</span> (imports 323 · tested_by 1 · tests 1) — reconciled count, fresh</td></tr>
+  <tr><th>Graph files</th><td>140 (incl. test files)</td></tr>
+  <tr><th>Tests</th><td>535 passed / 0 failed — 11 crates, 38 suites (tick 47 re-run)</td></tr>
+  <tr><th>Build</th><td><span class="mono" style="display:inline;padding:.05rem .35rem;">cargo check --workspace</span> PASS</td></tr>
+  <tr><th>Quality</th><td>fmt ✅ · clippy 0 warnings ✅ · 0 TODOs/FIXMEs in source</td></tr>
+  <tr><th>Git</th><td>clean worktree · 0 unpushed</td></tr>
+  <tr><th>GitReins</th><td>14/14 tasks complete · Tier 1 guard + Tier 2 judge PASS (deepseek-v4-flash, caps 100/30m/1M/2M)</td></tr>
+  <tr><th>Scheduler</th><td>Enabled · cooldown 7200s (fleet.toml pin + API converged)</td></tr>
+</table>
+</div>
+
+<h2>4 · Recent Work (last 14 days)</h2>
+<div class="card">
+<h3>4.1 · JIT Graph Freshness (Bane direction 07-31) — <span class="ok">COMPLETE</span></h3>
+<table>
+  <tr><th>JIT-001 · write-through</th><td><span class="mono" style="display:inline;padding:.05rem .35rem;">e2b2af4</span> — <span class="mono" style="display:inline;padding:.05rem .35rem;">parse-and-diff</span> trigger now <span class="mono" style="display:inline;padding:.05rem .35rem;">INSERT OR IGNORE</span>s new edges into DuckDB right after appending to edges.jsonl. Write path and read path linked — killed the 15-tick 290-vs-205 staleness bug.</td></tr>
+  <tr><th>JIT-002 · read-through</th><td><span class="mono" style="display:inline;padding:.05rem .35rem;">4196997</span> — queries reconcile incrementally when DuckDB count ≠ edges.jsonl (loads only missing edges). Cache can never drift, even if a write path is bypassed.</td></tr>
+  <tr><th>Result</th><td><span class="mono" style="display:inline;padding:.05rem .35rem;">hilo graph warm</span> now fully optional. Stats self-healed: <b>205 → 325 edges</b> after the fix reached the deployed binary.</td></tr>
+</table>
+<h3>4.2 · Deployment gap fixed (tick 44) — <span class="ok">COMPLETE</span></h3>
+<p>Fleet <span class="mono" style="display:inline;padding:.05rem .35rem;">hilo</span> binary was <b>stale (Jul 19)</b> while JIT-001/002 sat in source. Rebuilt + redeployed to <span class="mono" style="display:inline;padding:.05rem .35rem;">~/.cargo/bin/hilo</span>. Verified live: stats now reconcile to 325/140.</p>
+<h3>4.3 · GitReins judge upsized (tick 44) · Cooldown policy corrected (tick 45) — <span class="ok">COMPLETE</span></h3>
+<p>Evaluator caps 100 iter / 30m / 1M in / 2M out. Cooldown: 0-pending → 7200s per Bane 07-31 matrix; two-sided durable fix (API PUT + fleet.toml pin), converged and stable.</p>
+</div>
+
+<h2>5 · Board State (DuckDB v2.1)</h2>
+<div class="card">
+<table>
+  <tr><th>TASK-001..007</th><td>Rinnegan batch + 17 languages</td><td class="ok">✅ complete</td></tr>
+  <tr><th>DOC / INFRA / SEC / CI / DEPS / TEST</th><td>docs, Pages, audit fixes, CI fixes, dep upgrades, test suites</td><td class="ok">✅ complete</td></tr>
+  <tr><th>IMPL-001..004</th><td>graceful shutdown · Docker integration · rate limiting · tracing</td><td class="ok">✅ complete</td></tr>
+  <tr><th>JIT-001 / JIT-002</th><td>cache write-through + read-through reconciliation</td><td class="ok">✅ complete</td></tr>
+  <tr><th>BOARD-V2</th><td>DuckDB board migration</td><td class="ok">✅ complete</td></tr>
+  <tr><th>Real pending</th><td>—</td><td class="ok"><b>0</b></td></tr>
+  <tr><th>NEVER-DONE</th><td>14-pt perpetual audit fixture</td><td>perpetual</td></tr>
+</table>
+</div>
+
+<h2>6 · Screenshot Report</h2>
+<div class="card">
+<h3>6.1 · Project dashboard — live capture</h3>
+<p style="color:var(--muted);font-size:.85rem;">⚠️ <span class="mono" style="display:inline;padding:.05rem .35rem;">dashboard.html</span> is a <b>2026-07-12 artifact</b> (stale commit list) — the official visual identity, not live state. Live metrics in §3 supersede it.</p>
+<img class="screenshot" src="__IMG_B64__" alt="Hilo dashboard screenshot">
+<div class="grid2">
+  <div class="card" style="margin:.6rem 0 0;"><b>Rendered sections (0 defects):</b>
+    <ul style="margin:.4rem 0 0 1.1rem;font-size:.88rem;">
+      <li>Header — 26 languages, metadata-first</li>
+      <li>Languages — 26 + full tag cloud</li>
+      <li>Tasks — 001..007 all ✓</li>
+      <li>Quality gates — Tier1 PASS · Tier2 PASS · CI GREEN</li>
+      <li>Core features — 8/8 (AST, DuckDB+JSONL, BFS impact, TF-IDF+BM25, signal, MCP 15, FUSE, inotify)</li>
+      <li>Codebase — 57 source files, 10 crates</li>
+      <li>Recent commits — 10 SHAs (stale as of Jul 12)</li>
+    </ul>
+  </div>
+  <div class="card" style="margin:.6rem 0 0;"><b>6.2 · Live CLI capture</b>
+<div class="mono">Total edges: 325
+Total files: 140
+Most connected: pkg:std
+Edge types:
+  imports: 323
+  tested_by: 1
+  tests: 1</div>
+<p style="color:var(--muted);font-size:.82rem;margin-top:.4rem;">Post-JIT number — write-through/read-through fix live in the deployed binary.</p>
+  </div>
+</div>
+</div>
+
+<h2>7 · Risks &amp; Open Items</h2>
+<div class="card">
+<table>
+  <tr><th>1</th><td><span class="warn">Low</span></td><td><span class="mono" style="display:inline;padding:.05rem .35rem;">cargo audit</span>: 6 pre-existing warnings (git2 ×3 unsound, fuser, bincode, paste — no semver fix available)</td><td>Monitor</td></tr>
+  <tr><th>2</th><td><span class="warn">Low</span></td><td>dashboard.html stale (Jul 12) — regenerate from live state if linked externally</td><td>Open</td></tr>
+  <tr><th>3</th><td><span class="warn">Low</span></td><td>PAYG burn ~$0.60/day on idle ticks</td><td>Policy-set (7200s cooldown)</td></tr>
+  <tr><th>4</th><td><span class="warn">Low</span></td><td>DuckBrain MCP intermittent (write verified, occasional recall miss)</td><td>Monitor</td></tr>
+  <tr><th>5</th><td><span class="warn">Low</span></td><td>hilo-ffi: 0 tests (UDL bindings, no testable logic)</td><td>Known skip</td></tr>
+</table>
+</div>
+
+<h2>8 · Recommendations</h2>
+<div class="card">
+<ol style="margin-left:1.2rem;">
+  <li><b>Next direction needed from Bane</b> — project is genuinely done at v0.2.0. Candidates: v0.3 feature set, dashboard regeneration, hilo-ffi language SDKs, or pause.</li>
+  <li><b>Pausing</b>: scheduler entry can be disabled (re-enable anytime) — stops idle burn completely.</li>
+  <li><b>Regenerate</b> <span class="mono" style="display:inline;padding:.05rem .35rem;">dashboard.html</span> from live state for external links.</li>
+</ol>
+</div>
+
+<div class="foot">Generated 2026-08-02 · Hermes foreman · Data: live CLI + board DB + CI API + browser capture · Hilo v0.2.0 · MIT</div>
+</body>
+</html>
