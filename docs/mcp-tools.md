@@ -231,7 +231,7 @@ Add to your MCP client config:
 {
   "mcpServers": {
     "hilo": {
-      "command": "hilo-cli",
+      "command": "hilo",
       "args": ["serve", "--mcp"],
       "cwd": "/path/to/your/project"
     }

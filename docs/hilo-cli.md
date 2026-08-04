@@ -17,7 +17,7 @@ The `hilo` binary — entrypoint for all Hilo operations. Built with clap.
 | `hilo graph warm [--language <lang>] [--changed]` | Pre-parse all files into DuckDB cache |
 | `hilo graph module <name>` | All edges for a module |
 | `hilo graph untested` | Files with no test coverage edges |
-| `hilo serve [--mcp] [--rate-limit <rps>]` | Start MCP server (stdio) |
+| `hilo serve --mcp` | Start MCP server (stdio) — `--mcp` required (only implemented server mode); rate limit read from manifest `performance.rate_limit_rps` |
 | `hilo backend add <id> --type s3 --bucket ... --region ...` | Add a storage backend |
 | `hilo backend list` | List configured backends |
 | `hilo backend remove <id>` | Remove a backend |

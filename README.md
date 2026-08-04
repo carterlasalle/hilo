@@ -12,7 +12,7 @@ test coverage, blast radius — without burning context window on file reads.
 ```bash
 git clone https://github.com/gethilo/hilo.git
 cd hilo && cargo build --release
-./target/release/hilo-cli --help
+./target/release/hilo --help
 ```
 
 Requirements: Rust 1.80+, `libfuse3-dev` (for FUSE mount), `attr` (for xattrs).
