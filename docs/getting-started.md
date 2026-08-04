@@ -6,7 +6,7 @@
 git clone https://github.com/gethilo/hilo.git
 cd hilo
 cargo build --release
-./target/release/hilo-cli --help
+./target/release/hilo --help
 ```
 
 ### Requirements
@@ -56,7 +56,7 @@ Add to your MCP client configuration:
 {
   "mcpServers": {
     "hilo": {
-      "command": "/path/to/hilo-cli",
+      "command": "/path/to/hilo",
       "args": ["serve", "--mcp"],
       "cwd": "/path/to/your/project"
     }

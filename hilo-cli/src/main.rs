@@ -182,8 +182,8 @@ struct ModuleArgs {
 
 #[derive(clap::Args)]
 struct ServeArgs {
-    /// Run as an MCP server.
-    #[arg(long)]
+    /// Run as an MCP server (required — the only implemented server mode).
+    #[arg(long, required = true)]
     mcp: bool,
 }
 
