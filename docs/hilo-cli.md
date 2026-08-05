@@ -10,7 +10,7 @@ The `hilo` binary — entrypoint for all Hilo operations. Built with clap.
 | Command | Description |
 |---------|-------------|
 | `hilo init` | Initialize a Hilo project — creates `.vfs/`, installs git hooks |
-| `hilo meta <path> [--set key=value] [--read key] [--list]` | Read/write/list xattr metadata on files |
+| `hilo meta <path> [--set <attr> --value <value>]` | Read (all) or set xattr metadata on a file — no per-key read/list flags |
 | `hilo graph related <path> [--direction reverse] [--relation imports]` | Query forward/reverse dependency edges |
 | `hilo graph impact <path>` | Transitive blast-radius analysis |
 | `hilo graph stats` | Aggregate graph statistics |
@@ -43,9 +43,8 @@ hilo graph warm --language go --language rust
 hilo graph stats
 
 # Metadata
-hilo meta --set user.vfs.feature auth-module src/auth.rs
-hilo meta --read user.vfs.feature src/auth.rs
-hilo meta --list src/auth.rs
+hilo meta --set user.vfs.feature --value auth-module src/auth.rs
+# Read (all xattrs): hilo meta src/auth.rs — no per-key --read/--list flags
 
 # Classify
 hilo classify --dry-run

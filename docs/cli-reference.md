@@ -18,10 +18,10 @@ Read and write extended attributes on files.
 hilo meta src/main.rs
 
 # Set a specific attribute
-hilo meta --set src/main.rs user.vfs.role entrypoint
+hilo meta --set user.vfs.role --value entrypoint src/main.rs
 
-# Read a specific attribute
-hilo meta --read src/main.rs user.vfs.role
+# Read (prints all xattrs — no per-key read flag)
+hilo meta src/main.rs
 ```
 
 ## `hilo graph`
