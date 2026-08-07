@@ -124,7 +124,7 @@ This project is managed by the coding-hermes autonomous pipeline.
 - **Foreman:** hilo-foreman (coding-hermes cron)
 - **Quality gates:** GitReins Tier 1 (secrets, lint, build, test) + Tier 2 (LLM evaluation)
 - **Agent skills:** coding-hermes, coding-hermes-cron, hilo-usage, gitreins
-- **Task board:** `.coding-hermes/tasks.md`
+- **Task board:** `.coding-hermes/board/tasks.jsonl`
 - **Rinnegan upgrade batch (v0.2):** Provenance tracking, signal engine, semantic search, determinism tests — all complete
 
 ## Git Workflow
