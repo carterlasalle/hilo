@@ -27,7 +27,7 @@ const SKIP_DIRS: &[&str] = &[
 /// Pre-compute the full graph — parse ALL source files (optional warmup).
 ///
 /// This is the same batch-parse that was previously called
-/// `hilo graph discover`.  It remains useful for CI pipelines or users who
+/// `hilo graph warm`.  It remains useful for CI pipelines or users who
 /// want every file cached before running queries.  Day-to-day, queries are
 /// JIT (lazy) and do **not** require `warm` first.
 ///
@@ -955,7 +955,7 @@ pub fn run_rule_check(name: &str) -> Result<()> {
     let graph_db = cwd.join(".vfs").join("graph").join("graph.db");
 
     if !graph_db.exists() {
-        anyhow::bail!("No graph data. Run `hilo graph discover` first.");
+        anyhow::bail!("No graph data. Run `hilo graph warm` first.");
     }
 
     let manifest = load_manifest()?;

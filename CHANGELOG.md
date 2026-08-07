@@ -31,7 +31,7 @@ All notable changes to Hilo are documented in this file.
 
 ### Changed
 
-- `hilo graph discover` renamed to `hilo graph warm` (Discover kept as alias)
+- `hilo graph warm` is the canonical batch graph build command (the former `discover` subcommand is kept as a hidden alias for backward compatibility)
 - Edge struct extended with provenance + confidence fields
 - DuckDB unique index includes provenance column
 - Signal engine integrated into semantic search anchor discovery
