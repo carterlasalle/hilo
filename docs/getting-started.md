@@ -31,7 +31,7 @@ cd my-project
 hilo init
 
 # 2. Build the dependency graph
-hilo graph discover
+hilo graph warm
 
 # 3. Auto-classify every file
 hilo classify

@@ -26,17 +26,17 @@ hilo meta src/main.rs
 
 ## `hilo graph`
 
-### `discover`
+### `warm`
 
 Walk the directory tree, parse all source files with tree-sitter, and
 build the dependency graph. Writes to `.vfs/graph/edges.jsonl` and
 `.vfs/graph/graph.db`.
 
 ```bash
-hilo graph discover
+hilo graph warm
 
 # With cross-repo workspace edges
-hilo graph discover --workspace
+hilo graph warm --workspace
 ```
 
 Supported languages (26): Go, Python, TypeScript, Rust, JavaScript,
