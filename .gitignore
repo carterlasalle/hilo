@@ -33,6 +33,8 @@ Thumbs.db
 
 # Agent artifacts (not part of the project)
 .coding-hermes/
+.coding-hermes/board/board.db
+.coding-hermes/board/*.parquet
 
 # Fleet infrastructure (bootstrapped in wrong directory)
 scheduler/
