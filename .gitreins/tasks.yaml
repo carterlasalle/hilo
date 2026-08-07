@@ -196,3 +196,23 @@ tasks:
   status: complete
   created_at: '2026-08-01T17:56:59.268357+00:00'
   completed_at: '2026-08-01T17:57:03.041646+00:00'
+- id: gap-005-docs-drift
+  title: 'Docs drift: graph discover -> warm in docs/ and specs/'
+  criteria:
+  - grep -r 'graph discover' docs/ specs/ returns zero hits
+  - Every hilo graph command in docs matches 'hilo graph --help' output
+  status: complete
+  created_at: '2026-08-07T14:34:39.017046+00:00'
+  completed_at: '2026-08-07T14:34:43.586556+00:00'
+- id: gap-006-source-rename
+  title: Graph discover/warm rename completed at source level
+  criteria:
+  - hilo-cli/src/commands/graph.rs rule-check error says 'Run hilo graph warm first'
+  - rg 'graph discover' hilo-cli/src/ docs/ specs/ returns zero hits excluding prose
+    matches of the noun 'graph discovery', OR hilo graph --help visibly lists both
+    warm and discover
+  - CHANGELOG.md alias claim reflects hidden alias for backward compatibility
+  - hilo graph discover still works as backward-compat alias
+  status: complete
+  created_at: '2026-08-07T14:34:39.289765+00:00'
+  completed_at: '2026-08-07T14:37:01.465576+00:00'
