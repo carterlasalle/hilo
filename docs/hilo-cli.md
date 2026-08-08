@@ -18,14 +18,11 @@ The `hilo` binary — entrypoint for all Hilo operations. Built with clap.
 | `hilo graph module <name>` | All edges for a module |
 | `hilo graph untested` | Files with no test coverage edges |
 | `hilo serve --mcp` | Start MCP server (stdio) — `--mcp` required (only implemented server mode); rate limit read from manifest `performance.rate_limit_rps` |
-| `hilo backend add <id> --type s3 --bucket ... --region ...` | Add a storage backend |
-| `hilo backend list` | List configured backends |
-| `hilo backend remove <id>` | Remove a backend |
-| `hilo backend sync <id>` | Sync a backend |
+| `hilo backend mount --type s3 --bucket <BUCKET> --at <PATH> [--prefix <PREFIX>] [--region <REGION>]` | Mount a virtual backend (S3, git, remote, local) at a virtual path |
+| `hilo backend list` | List all mounted backends |
 | `hilo mount <mount-point> [--triggers] [--allow-other]` | Mount FUSE filesystem |
-| `hilo workspace init` | Initialize multi-repo workspace |
-| `hilo workspace mount` | Mount all workspace repos |
-| `hilo workspace list` | List workspace repos |
+| `hilo workspace mount <MOUNT_POINT> [--manifest <PATH>]` | Mount all repos and backends from the workspace manifest (default `.vfs/manifest.yaml`) |
+| `hilo workspace unmount <MOUNT_POINT>` | Unmount a workspace |
 | `hilo classify [--dry-run]` | Auto-classify all files (role/status/feature metadata) |
 | `hilo plugin list` | List loaded WASM plugins |
 | `hilo plugin load <path>` | Load a plugin |
@@ -51,8 +48,12 @@ hilo classify --dry-run
 hilo classify
 
 # Backends
-hilo backend add my-s3 --type s3 --bucket my-bucket --region us-east-1
-hilo backend sync my-s3
+hilo backend mount --type s3 --bucket my-bucket --region us-east-1 --at /s3
+hilo backend list
+
+# Workspaces
+hilo workspace mount /mnt/hilo
+hilo workspace unmount /mnt/hilo
 
 # Mount
 hilo mount /mnt/hilo --triggers
