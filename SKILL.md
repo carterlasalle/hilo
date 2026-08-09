@@ -104,9 +104,14 @@ hilo-ffi/           # UniFFI bindings (Kotlin, Swift, Python)
 | `vfs_graph_stats` | Aggregate graph statistics |
 | `vfs_graph_understand` | Harmonic multi-resolution context (MAP → SIGNATURES → DETAIL) |
 | `vfs_graph_search` | Semantic code search (TF-IDF + BM25 + RRF) |
+| `vfs_graph_untested` | List files that have import edges but no test coverage (no tested_by edges) |
+| `vfs_graph_module` | Get per-module file listing and test coverage statistics from the dependency graph |
 | `vfs_list_directory` | List virtual directory contents |
 | `vfs_resolve_path` | Resolve path through backends |
 | `vfs_rule_check` | Run DuckDB rules against graph |
+| `vfs_rule_list` | List all rules defined in the Hilo manifest (stale-files, untested-critical, transitive-impact, etc.) |
+| `vfs_backend_status` | Get backend information for a file — which backend owns it, cache status, remote URL, and last sync state |
+| `vfs_sync_backend` | Sync the backend for a file — returns count of synced files and any errors |
 
 ## Key Design Rules
 
