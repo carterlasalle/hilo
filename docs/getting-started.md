@@ -6,7 +6,8 @@
 git clone https://github.com/gethilo/hilo.git
 cd hilo
 cargo build --release
-./target/release/hilo --help
+cp target/release/hilo ~/.cargo/bin/hilo   # put hilo on PATH
+hilo --help
 ```
 
 ### Requirements
