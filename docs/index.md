@@ -34,4 +34,7 @@ without reading files.
 
 ## Supported Languages
 
-Go, Python, TypeScript, Rust, JavaScript, Java, C, C++, Ruby
+Go, Python, TypeScript, Rust, JavaScript,
+Java, C, C++, Ruby, C#, Kotlin, PHP,
+Swift, Elixir, Haskell, Erlang, Scala,
+Zig, Lua, Dart, Clojure, OCaml, R, Julia, Elm, Nim

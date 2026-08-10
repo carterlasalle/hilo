@@ -87,11 +87,69 @@ Find all files that depend on a given file, directly or transitively.
 # Direct dependents only
 hilo graph impact sys:metacall/metacall.h --max-depth 1
 
-# Full transitive closure (up to 5 by default)
-hilo graph impact sys:gtest/gtest.h --max-depth 5
+# Full transitive closure (default: 10)
+hilo graph impact sys:gtest/gtest.h --max-depth 10
 
 # JSON output
 hilo graph impact sys:metacall/metacall.h --format json
+```
+
+### `understand`
+
+Multi-resolution harmonic context output for a natural-language task.
+
+```bash
+hilo graph understand "how does plugin execution get sandboxed"
+```
+
+Token budget override (default: 6000):
+
+```bash
+hilo graph understand "how does plugin execution get sandboxed" --budget 12000
+```
+
+### `search`
+
+Deterministic semantic code search (TF-IDF + BM25).
+
+```bash
+# Top 20 matches (default)
+hilo graph search "rate limiter"
+
+# Custom result limit
+hilo graph search "rate limiter" --limit 50
+```
+
+### `module`
+
+Per-module statistics and test coverage.
+
+```bash
+hilo graph module hilo-graph/src
+```
+
+### `untested`
+
+List source files with no test coverage.
+
+```bash
+hilo graph untested
+```
+
+### `rule-list`
+
+List all rules defined in the manifest.
+
+```bash
+hilo graph rule-list
+```
+
+### `rule-check`
+
+Execute a named rule query against the dependency graph.
+
+```bash
+hilo graph rule-check stale-files
 ```
 
 ## `hilo classify`
@@ -137,4 +195,67 @@ Start the MCP server for agent integration.
 ```bash
 # Stdio transport (for Claude Desktop, Hermes)
 hilo serve --mcp
+```
+
+## `hilo backend`
+
+Manage virtual backends (S3, git, remote, local).
+
+### `mount`
+
+Mount a virtual backend.
+
+```bash
+hilo backend mount --type s3 --bucket my-bucket --prefix data --at /s3
+
+# Explicit region (default: us-east-1)
+hilo backend mount --type s3 --bucket my-bucket --at /s3 --region eu-west-1
+```
+
+### `list`
+
+List all mounted backends.
+
+```bash
+hilo backend list
+```
+
+## `hilo workspace`
+
+Manage multi-repo workspace mounts.
+
+### `mount`
+
+Mount all repos and backends from the manifest.
+
+```bash
+hilo workspace mount /mnt/hilo
+```
+
+### `unmount`
+
+Unmount a workspace.
+
+```bash
+hilo workspace unmount /mnt/hilo
+```
+
+## `hilo plugin`
+
+Load and manage wasm plugins.
+
+### `load`
+
+Load a .wasm plugin and register it in the runtime.
+
+```bash
+hilo plugin load ./my-plugin.wasm
+```
+
+### `list`
+
+List plugins discovered in `.vfs/plugins/`.
+
+```bash
+hilo plugin list
 ```
