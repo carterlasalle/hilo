@@ -95,6 +95,9 @@ enum GraphCommand {
     RuleList,
     /// Execute a named rule query against the dependency graph.
     RuleCheck(RuleCheckArgs),
+    /// Delete the cached dependency graph (edges.jsonl + DuckDB cache) so
+    /// the next `graph warm` re-parses every source file from scratch.
+    Clean,
 }
 
 #[derive(clap::Args)]
@@ -252,6 +255,7 @@ fn main() {
         Commands::Graph(GraphCommand::Untested) => graph::run_untested(),
         Commands::Graph(GraphCommand::RuleList) => graph::run_rule_list(),
         Commands::Graph(GraphCommand::RuleCheck(args)) => graph::run_rule_check(&args.name),
+        Commands::Graph(GraphCommand::Clean) => graph::run_clean(),
         Commands::Serve(args) => serve::run(args.mcp),
         Commands::Backend(commands::backend::BackendCommand::Mount(args)) => {
             backend::run_mount(&args)

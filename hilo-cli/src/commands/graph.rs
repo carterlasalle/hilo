@@ -1001,11 +1001,77 @@ pub fn run_rule_check(name: &str) -> Result<()> {
     }
 }
 
+/// `hilo graph clean` — delete the cached dependency graph.
+///
+/// Removes `.vfs/graph/edges.jsonl`, `.vfs/graph/graph.db`, and the
+/// `.last_warm` marker so the next `warm` (or JIT parse) rebuilds the graph
+/// from scratch. Use this after crate renames or file moves leave stale
+/// edges in the cache (e.g. `warpfs-*` entries after the rename to
+/// `hilo-*`).
+pub fn run_clean() -> Result<()> {
+    let cwd = std::env::current_dir().context("failed to determine the current directory")?;
+    let removed = clean_graph_dir(&cwd)?;
+    if removed == 0 {
+        println!(
+            "Graph cache already clean ({})",
+            cwd.join(".vfs").join("graph").display()
+        );
+    } else {
+        println!(
+            "Graph cache cleaned ({removed} file(s) removed). Run `hilo graph warm` to rebuild."
+        );
+    }
+    Ok(())
+}
+
+/// Remove the graph cache files under `cwd/.vfs/graph/`; returns the number
+/// of files removed. Missing files are not an error.
+fn clean_graph_dir(cwd: &Path) -> Result<usize> {
+    let graph_dir = cwd.join(".vfs").join("graph");
+    let mut removed = 0;
+    for name in ["edges.jsonl", "graph.db", ".last_warm"] {
+        let path = graph_dir.join(name);
+        match std::fs::remove_file(&path) {
+            Ok(()) => {
+                println!("removed {}", path.display());
+                removed += 1;
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => {
+                return Err(
+                    anyhow::Error::new(e).context(format!("failed to remove {}", path.display()))
+                )
+            }
+        }
+    }
+    Ok(removed)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::fs;
     use tempfile::TempDir;
+
+    #[test]
+    fn clean_removes_graph_cache() {
+        let dir = TempDir::new().unwrap();
+        let graph_dir = dir.path().join(".vfs").join("graph");
+        fs::create_dir_all(&graph_dir).unwrap();
+        for name in ["edges.jsonl", "graph.db", ".last_warm"] {
+            fs::write(graph_dir.join(name), "stale").unwrap();
+        }
+
+        let removed = clean_graph_dir(dir.path()).unwrap();
+        assert_eq!(removed, 3);
+        assert!(!graph_dir.join("edges.jsonl").exists());
+        assert!(!graph_dir.join("graph.db").exists());
+        assert!(!graph_dir.join(".last_warm").exists());
+
+        // Second run: nothing to remove, not an error.
+        let removed = clean_graph_dir(dir.path()).unwrap();
+        assert_eq!(removed, 0);
+    }
 
     #[test]
     fn glob_matches_exact() {
