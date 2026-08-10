@@ -17,6 +17,10 @@ The `hilo` binary — entrypoint for all Hilo operations. Built with clap.
 | `hilo graph warm [--language <lang>] [--changed]` | Pre-parse all files into DuckDB cache |
 | `hilo graph module <name>` | All edges for a module |
 | `hilo graph untested` | Files with no test coverage edges |
+| `hilo graph understand <TASK> [--budget <N>]` | Multi-resolution harmonic context output for a natural-language task |
+| `hilo graph search <QUERY> [--limit <N>]` | Deterministic semantic code search (TF-IDF + BM25) |
+| `hilo graph rule-list` | List all rules defined in the manifest |
+| `hilo graph rule-check <NAME>` | Execute a named rule query against the dependency graph |
 | `hilo serve --mcp` | Start MCP server (stdio) — `--mcp` required (only implemented server mode); rate limit read from manifest `performance.rate_limit_rps` |
 | `hilo backend mount --type s3 --bucket <BUCKET> --at <PATH> [--prefix <PREFIX>] [--region <REGION>]` | Mount a virtual backend (S3, git, remote, local) at a virtual path |
 | `hilo backend list` | List all mounted backends |

@@ -213,13 +213,13 @@ Deterministic semantic code search using TF-IDF + Okapi BM25 + Reciprocal Rank F
   "name": "vfs_graph_search",
   "arguments": {
     "query": "authentication middleware",
-    "limit": 10
+    "limit": 20
   }
 }
 ```
 
 - `query` (required): natural language search query
-- `limit` (optional): max results (default 10)
+- `limit` (optional): max results (default 20)
 
 Returns: `{ "results": [{ "file_path": "src/auth.rs", "symbols": ["AuthMiddleware"], "score": 0.89, "provenance": "lexical" }], "total": 5 }`
 
