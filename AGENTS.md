@@ -1,6 +1,6 @@
 # AGENTS.md — Hilo
 
-Agent-first metadata filesystem. Written in Rust, 10 crates, 26-language AST parsing.
+Agent-first metadata filesystem. Written in Rust, 11 crates, 26-language AST parsing.
 
 ## Build & Test
 

@@ -1,6 +1,6 @@
 ---
 name: hilo
-description: "Agent-first virtual filesystem — pre-computes dependency graphs, metadata, and semantic context for AI coding agents. Written in Rust, 10 crates, 26-language AST parsing."
+description: "Agent-first virtual filesystem — pre-computes dependency graphs, metadata, and semantic context for AI coding agents. Written in Rust, 11 crates, 26-language AST parsing."
 version: "0.2.0"
 license: MIT
 language: rust
@@ -56,7 +56,7 @@ hilo serve --mcp
 ## Testing
 
 ```bash
-# Run all test suites (476+ tests across 10 crates)
+# Run all test suites (476+ tests across 11 crates)
 cargo test --workspace
 
 # Specific crate
