@@ -216,3 +216,15 @@ tasks:
   status: complete
   created_at: '2026-08-07T14:34:39.289765+00:00'
   completed_at: '2026-08-07T14:37:01.465576+00:00'
+- id: gap-018-graph-clean
+  title: "hilo graph clean subcommand \u2014 purge stale graph cache"
+  criteria:
+  - hilo graph --help lists clean as a subcommand
+  - After hilo graph clean, .vfs/graph/edges.jsonl, .vfs/graph/graph.db and .vfs/graph/.last_warm
+    no longer exist
+  - After clean + hilo graph warm, hilo graph untested reports zero warpfs-* phantom
+    files
+  - Unit test clean_removes_graph_cache passes in cargo test -p hilo-cli
+  status: complete
+  created_at: '2026-08-10T21:23:05.593159+00:00'
+  completed_at: '2026-08-10T21:28:17.438462+00:00'
