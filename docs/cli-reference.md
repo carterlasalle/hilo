@@ -188,6 +188,9 @@ hilo mount /mnt/vfs --triggers
 hilo mount /mnt/vfs --allow-other
 ```
 
+**Note:** `hilo mount` runs in the foreground and blocks the terminal
+until unmounted. Run it in a separate terminal, or background it with `&`.
+
 ## `hilo serve`
 
 Start the MCP server for agent integration.

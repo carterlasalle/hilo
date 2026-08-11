@@ -111,6 +111,8 @@ hilo graph related <file> --relation imports
 
 # Or mount as a filesystem
 mkdir /mnt/vfs
+# NOTE: hilo mount runs in the FOREGROUND and blocks this terminal until
+# unmounted (Ctrl-C to stop). Run it in a separate terminal, or with `&`.
 hilo mount /mnt/vfs
 ls /mnt/vfs/
 getfattr -n user.vfs.role /mnt/vfs/src/main.rs
@@ -118,6 +120,15 @@ getfattr -n user.vfs.role /mnt/vfs/src/main.rs
 # Or serve MCP for agents
 hilo serve --mcp
 ```
+
+## More commands
+
+- `hilo backend mount` — mount a virtual backend (S3, git, remote, local)
+- `hilo backend list` — list mounted backends
+- `hilo workspace mount` — mount all repos and backends from the manifest
+- `hilo workspace unmount` — unmount a workspace
+- `hilo plugin load` — load a WASM plugin into the runtime
+- `hilo plugin list` — list plugins discovered in `.vfs/plugins/`
 
 ## License
 

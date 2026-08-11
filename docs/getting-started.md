@@ -69,6 +69,8 @@ Add to your MCP client configuration:
 
 ```bash
 mkdir /mnt/vfs
+# NOTE: hilo mount runs in the FOREGROUND and blocks this terminal until
+# unmounted (Ctrl-C to stop). Run it in a separate terminal, or with `&`.
 hilo mount /mnt/vfs
 
 # Standard tools work through the mount
@@ -76,3 +78,10 @@ ls /mnt/vfs/
 cat /mnt/vfs/src/main.rs
 getfattr -n user.vfs.role /mnt/vfs/src/main.rs
 ```
+
+### More commands
+
+Hilo also ships three more command families: `hilo backend` (virtual
+S3/git/remote backends), `hilo workspace` (multi-repo mounts) and
+`hilo plugin` (WASM plugin runtime). See `hilo backend --help`,
+`hilo workspace --help` and `hilo plugin --help` for usage.
