@@ -112,7 +112,8 @@ hilo graph related <file> --relation imports
 # Or mount as a filesystem
 mkdir /mnt/vfs
 # NOTE: hilo mount runs in the FOREGROUND and blocks this terminal until
-# unmounted (Ctrl-C to stop). Run it in a separate terminal, or with `&`.
+# unmounted (Ctrl-C to stop). Run it in a separate terminal, with `&`, or
+# use `hilo mount /mnt/vfs --daemon` to detach it into a background process.
 hilo mount /mnt/vfs
 ls /mnt/vfs/
 getfattr -n user.vfs.role /mnt/vfs/src/main.rs

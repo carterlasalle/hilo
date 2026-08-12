@@ -21,10 +21,11 @@ The `hilo` binary — entrypoint for all Hilo operations. Built with clap.
 | `hilo graph search <QUERY> [--limit <N>]` | Deterministic semantic code search (TF-IDF + BM25) |
 | `hilo graph rule-list` | List all rules defined in the manifest |
 | `hilo graph rule-check <NAME>` | Execute a named rule query against the dependency graph |
+| `hilo graph clean` | Delete the cached dependency graph (edges.jsonl + DuckDB cache) so the next `graph warm` re-parses from scratch |
 | `hilo serve --mcp` | Start MCP server (stdio) — `--mcp` required (only implemented server mode); rate limit read from manifest `performance.rate_limit_rps` |
 | `hilo backend mount --type s3 --bucket <BUCKET> --at <PATH> [--prefix <PREFIX>] [--region <REGION>]` | Mount a virtual backend (S3, git, local) at a virtual path |
 | `hilo backend list` | List all mounted backends |
-| `hilo mount <mount-point> [--triggers] [--allow-other]` | Mount FUSE filesystem |
+| `hilo mount <mount-point> [--triggers] [--allow-other] [--daemon]` | Mount FUSE filesystem (--daemon detaches into a background process) |
 | `hilo workspace mount <MOUNT_POINT> [--manifest <PATH>]` | Mount all repos and backends from the workspace manifest (default `.vfs/manifest.yaml`) |
 | `hilo workspace unmount <MOUNT_POINT>` | Unmount a workspace |
 | `hilo classify [--dry-run]` | Auto-classify all files (role/status/feature metadata) |
@@ -42,6 +43,7 @@ hilo graph related src/main.go
 hilo graph impact src/auth/mod.rs
 hilo graph warm --language go --language rust
 hilo graph stats
+hilo graph clean
 
 # Metadata
 hilo meta --set user.vfs.feature --value auth-module src/auth.rs

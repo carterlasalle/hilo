@@ -49,6 +49,9 @@ struct MountArgs {
     /// Allow other users to access the mount.
     #[arg(long)]
     allow_other: bool,
+    /// Run in the background: detach from the terminal and return immediately.
+    #[arg(long)]
+    daemon: bool,
 }
 
 #[derive(clap::Args)]
@@ -261,9 +264,12 @@ fn main() {
             backend::run_mount(&args)
         }
         Commands::Backend(commands::backend::BackendCommand::List) => backend::run_list(),
-        Commands::Mount(args) => {
-            mount::run_mount(&args.mount_point, args.triggers, args.allow_other)
-        }
+        Commands::Mount(args) => mount::run_mount(
+            &args.mount_point,
+            args.triggers,
+            args.allow_other,
+            args.daemon,
+        ),
         Commands::Workspace(WorkspaceCommand::Mount(args)) => {
             workspace::run_workspace_mount(&args.manifest, &args.mount_point)
         }

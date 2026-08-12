@@ -37,6 +37,12 @@ hilo graph warm
 
 # With cross-repo workspace edges
 hilo graph warm --workspace
+
+# Only parse files of a specific language
+hilo graph warm --language rust
+
+# Only parse files changed since the last warm (used by the post-commit hook)
+hilo graph warm --changed
 ```
 
 Supported languages (26): Go, Python, TypeScript, Rust, JavaScript,
@@ -92,6 +98,9 @@ hilo graph impact sys:gtest/gtest.h --max-depth 10
 
 # JSON output
 hilo graph impact sys:metacall/metacall.h --format json
+
+# Include external cross-repo edges in the traversal
+hilo graph impact src/main.rs --external
 ```
 
 ### `understand`
@@ -152,6 +161,16 @@ Execute a named rule query against the dependency graph.
 hilo graph rule-check stale-files
 ```
 
+### `clean`
+
+Delete the cached dependency graph (`edges.jsonl` + DuckDB cache) so the
+next `graph warm` re-parses every source file from scratch. The reset path
+for a corrupted or stale graph database.
+
+```bash
+hilo graph clean
+```
+
 ## `hilo classify`
 
 Auto-tag every source file with `user.vfs.role` and `user.vfs.status`
@@ -166,6 +185,9 @@ hilo classify
 
 # Verbose output (per-file)
 hilo classify --verbose
+
+# Enable feature inference (sets user.vfs.feature xattrs from directory structure)
+hilo classify --features
 ```
 
 Roles detected: `entrypoint`, `library`, `test`, `script`, `example`,
@@ -186,10 +208,15 @@ hilo mount /mnt/vfs --triggers
 
 # Allow other users to access
 hilo mount /mnt/vfs --allow-other
+
+# Run in the background (detached daemon — returns immediately)
+hilo mount /mnt/vfs --daemon
 ```
 
 **Note:** `hilo mount` runs in the foreground and blocks the terminal
-until unmounted. Run it in a separate terminal, or background it with `&`.
+until unmounted. Run it in a separate terminal, background it with `&`,
+or pass `--daemon` to detach it into a background process that keeps the
+mount alive until `fusermount -u /mnt/vfs` unmounts it.
 
 ## `hilo serve`
 

@@ -2226,6 +2226,7 @@ dependencies = [
  "hilo_metadata",
  "hilo_plugins",
  "hilo_triggers",
+ "libc",
  "rayon",
  "serde",
  "serde_yaml",

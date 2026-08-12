@@ -1,15 +1,27 @@
 //! `hilo mount <mount_point>` — mount a Hilo virtual filesystem via FUSE.
 
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 
 use anyhow::{Context, Result};
 use hilo_fuse::{daemon, FuseConfig, Hilo};
 use hilo_triggers::{TriggerConfig, TriggerEngine};
 
+/// Environment variable set on the re-executed child of a `--daemon` mount.
+/// Lets the child run the normal blocking mount path without re-daemonizing.
+const DAEMON_CHILD_ENV: &str = "HILO_MOUNT_DAEMONIZED";
+
 /// Mount a Hilo read-only FUSE filesystem.
 ///
 /// Reads the current directory as the backing root, builds a `FuseConfig`
 /// from the CLI arguments, and blocks in `daemon::mount` until unmounted.
+///
+/// When `--daemon` is set, the mount runs in a detached background process:
+/// the current process re-executes itself with `HILO_MOUNT_DAEMONIZED=1`,
+/// `setsid()`s the child (new session, no controlling terminal), redirects
+/// its stdio to `/dev/null`, and returns immediately. The child performs
+/// the actual `daemon::mount` and keeps serving until `fusermount -u`
+/// unmounts it.
 ///
 /// When `--triggers` is set, a background `TriggerEngine` watches the mount
 /// point for file events (inotify) and fires registered triggers.  The
@@ -17,7 +29,19 @@ use hilo_triggers::{TriggerConfig, TriggerEngine};
 /// does not interfere with the FUSE event loop.
 ///
 /// On `SIGINT` / `SIGTERM` the mount is cleaned up via `daemon::unmount`.
-pub fn run_mount(mount_point: &str, triggers: bool, allow_other: bool) -> Result<()> {
+pub fn run_mount(mount_point: &str, triggers: bool, allow_other: bool, daemon: bool) -> Result<()> {
+    // Foreground parent of a `--daemon` mount: spawn the detached child and
+    // return. The child (see DAEMON_CHILD_ENV) skips this branch.
+    if daemon && std::env::var_os(DAEMON_CHILD_ENV).is_none() {
+        let mut cmd = build_daemon_command(mount_point, triggers, allow_other)?;
+        let child = cmd.spawn().context("failed to spawn background mount")?;
+        println!(
+            "Hilo mount daemonized (pid {}) — filesystem available at {mount_point}",
+            child.id()
+        );
+        return Ok(());
+    }
+
     let current_dir =
         std::env::current_dir().context("failed to determine the current directory")?;
 
@@ -58,6 +82,42 @@ pub fn run_mount(mount_point: &str, triggers: bool, allow_other: bool) -> Result
     }
 
     Ok(())
+}
+
+/// Build the detached child command for `hilo mount --daemon`.
+///
+/// Re-executes the current binary with the same mount arguments plus
+/// `HILO_MOUNT_DAEMONIZED=1`, makes the child a session leader (`setsid`)
+/// and detaches its stdio so the parent can return immediately.
+fn build_daemon_command(mount_point: &str, triggers: bool, allow_other: bool) -> Result<Command> {
+    let exe = std::env::current_exe().context("failed to locate the hilo binary")?;
+    let mut cmd = Command::new(exe);
+    cmd.arg("mount").arg(mount_point);
+    if triggers {
+        cmd.arg("--triggers");
+    }
+    if allow_other {
+        cmd.arg("--allow-other");
+    }
+    cmd.arg("--daemon");
+    cmd.env(DAEMON_CHILD_ENV, "1");
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        // Safety: setsid() is async-signal-safe and does not allocate.
+        unsafe {
+            cmd.pre_exec(|| {
+                if libc::setsid() == -1 {
+                    return Err(std::io::Error::last_os_error());
+                }
+                Ok(())
+            });
+        }
+    }
+    Ok(cmd)
 }
 
 /// Start the trigger engine in a dedicated tokio runtime.
@@ -259,6 +319,7 @@ fn default_triggers() -> Vec<TriggerConfig> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::ffi::OsString;
 
     #[test]
     fn test_default_triggers_covers_all_languages() {
@@ -340,5 +401,52 @@ triggers:
         assert_eq!(parse_debounce("500ms"), 500);
         assert_eq!(parse_debounce("2s"), 2000);
         assert_eq!(parse_debounce("1s"), 1000);
+    }
+
+    #[test]
+    fn test_build_daemon_command_args() {
+        let cmd = build_daemon_command("/tmp/vfs", true, true).unwrap();
+        let args: Vec<OsString> = cmd.get_args().map(OsString::from).collect();
+        assert_eq!(
+            args,
+            vec![
+                OsString::from("mount"),
+                OsString::from("/tmp/vfs"),
+                OsString::from("--triggers"),
+                OsString::from("--allow-other"),
+                OsString::from("--daemon"),
+            ]
+        );
+        // Detached stdio is exercised by the live `mount --daemon` verification.
+    }
+
+    #[test]
+    fn test_build_daemon_command_minimal() {
+        let cmd = build_daemon_command("/tmp/vfs", false, false).unwrap();
+        let args: Vec<OsString> = cmd.get_args().map(OsString::from).collect();
+        assert_eq!(
+            args,
+            vec![
+                OsString::from("mount"),
+                OsString::from("/tmp/vfs"),
+                OsString::from("--daemon"),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_build_daemon_command_sets_marker_env() {
+        let cmd = build_daemon_command("/tmp/vfs", false, false).unwrap();
+        let envs: Vec<(OsString, Option<OsString>)> = cmd
+            .get_envs()
+            .map(|(k, v)| (k.to_os_string(), v.map(OsString::from)))
+            .collect();
+        assert!(
+            envs.contains(&(
+                OsString::from("HILO_MOUNT_DAEMONIZED"),
+                Some(OsString::from("1"))
+            )),
+            "daemon child marker env must be set: {envs:?}"
+        );
     }
 }

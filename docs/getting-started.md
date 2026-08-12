@@ -70,7 +70,8 @@ Add to your MCP client configuration:
 ```bash
 mkdir /mnt/vfs
 # NOTE: hilo mount runs in the FOREGROUND and blocks this terminal until
-# unmounted (Ctrl-C to stop). Run it in a separate terminal, or with `&`.
+# unmounted (Ctrl-C to stop). Run it in a separate terminal, with `&`, or
+# use `hilo mount /mnt/vfs --daemon` to detach it into a background process.
 hilo mount /mnt/vfs
 
 # Standard tools work through the mount
