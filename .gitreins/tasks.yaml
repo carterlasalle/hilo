@@ -228,3 +228,16 @@ tasks:
   status: complete
   created_at: '2026-08-10T21:23:05.593159+00:00'
   completed_at: '2026-08-10T21:28:17.438462+00:00'
+- id: gap-025-backend-mount-types
+  title: "Backend mount type wiring \u2014 git/local CLI support"
+  criteria:
+  - hilo backend mount --type local --at <existing-dir> exits 0 and prints 'mounted
+    local' (no 'unknown backend type')
+  - hilo backend mount --type git without --url exits non-zero with a clear '--url
+    is required' message
+  - hilo backend mount --type git --url <valid-url> uses hilo_backends::git::GitBackend::mount
+  - hilo backend mount --type local uses hilo_backends::local::LocalBackend::mount
+  - grep -c 'git, remote, local' README.md docs/ = 0 (no unimplemented backend advertised)
+  status: complete
+  created_at: '2026-08-12T02:09:01.633904+00:00'
+  completed_at: '2026-08-12T02:09:06.753464+00:00'
