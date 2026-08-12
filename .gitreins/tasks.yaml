@@ -241,3 +241,13 @@ tasks:
   status: complete
   created_at: '2026-08-12T02:09:01.633904+00:00'
   completed_at: '2026-08-12T02:09:06.753464+00:00'
+- id: gap-027-mount-daemon
+  title: hilo mount --daemon background mode
+  criteria:
+  - hilo mount --help shows the --daemon flag
+  - hilo mount <dir> --daemon returns immediately (exit 0, no blocking)
+  - the mount persists in the background (mountpoint active, session leader)
+  - fusermount -u <dir> unmounts cleanly and the daemon process exits
+  status: complete
+  created_at: '2026-08-12T11:43:22.846860+00:00'
+  completed_at: '2026-08-12T11:43:25.451595+00:00'
