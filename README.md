@@ -123,7 +123,7 @@ hilo serve --mcp
 
 ## More commands
 
-- `hilo backend mount` — mount a virtual backend (S3, git, remote, local)
+- `hilo backend mount` — mount a virtual backend (S3, git, local)
 - `hilo backend list` — list mounted backends
 - `hilo workspace mount` — mount all repos and backends from the manifest
 - `hilo workspace unmount` — unmount a workspace

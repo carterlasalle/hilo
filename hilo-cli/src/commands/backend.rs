@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Subcommand;
+use std::path::PathBuf;
 
 #[derive(Subcommand)]
 pub enum BackendCommand {
@@ -11,7 +12,7 @@ pub enum BackendCommand {
 
 #[derive(clap::Args)]
 pub struct MountArgs {
-    /// Backend type: "s3"
+    /// Backend type: "s3", "git", "local"
     #[arg(long)]
     pub r#type: String,
     /// S3 bucket name
@@ -20,7 +21,10 @@ pub struct MountArgs {
     /// S3 key prefix
     #[arg(long)]
     pub prefix: Option<String>,
-    /// Mount point (virtual path)
+    /// Git repository URL (required for --type git)
+    #[arg(long)]
+    pub url: Option<String>,
+    /// Mount point (virtual path) — for --type local, the real path to mount
     #[arg(long)]
     pub at: String,
     /// AWS region
@@ -40,6 +44,38 @@ pub fn run_mount(args: &MountArgs) -> Result<()> {
             // In a real implementation, this would register the backend
             // in the running VFS. For Phase 3, we validate the args and
             // report success.
+            Ok(())
+        }
+        "git" => {
+            let url = args.url.as_deref().unwrap_or("");
+            if url.is_empty() {
+                anyhow::bail!("--url is required for git backend");
+            }
+            let backend =
+                hilo_backends::git::GitBackend::mount(hilo_backends::git::GitBackendConfig {
+                    url: url.to_string(),
+                    ref_name: "main".to_string(),
+                    at: args.at.clone(),
+                    writable: false,
+                    auto_pull_secs: None,
+                    cache_dir: None,
+                })?;
+            println!(
+                "mounted git {} at {} (worktree {})",
+                url,
+                args.at,
+                backend.mount_point()
+            );
+            Ok(())
+        }
+        "local" => {
+            let backend = hilo_backends::local::LocalBackend::mount(
+                hilo_backends::local::LocalBackendConfig {
+                    real_path: PathBuf::from(&args.at),
+                    at: args.at.clone(),
+                },
+            )?;
+            println!("mounted local {} at {}", backend.mount_point(), args.at);
             Ok(())
         }
         other => anyhow::bail!("unknown backend type: {other}"),

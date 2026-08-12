@@ -22,7 +22,7 @@ The `hilo` binary — entrypoint for all Hilo operations. Built with clap.
 | `hilo graph rule-list` | List all rules defined in the manifest |
 | `hilo graph rule-check <NAME>` | Execute a named rule query against the dependency graph |
 | `hilo serve --mcp` | Start MCP server (stdio) — `--mcp` required (only implemented server mode); rate limit read from manifest `performance.rate_limit_rps` |
-| `hilo backend mount --type s3 --bucket <BUCKET> --at <PATH> [--prefix <PREFIX>] [--region <REGION>]` | Mount a virtual backend (S3, git, remote, local) at a virtual path |
+| `hilo backend mount --type s3 --bucket <BUCKET> --at <PATH> [--prefix <PREFIX>] [--region <REGION>]` | Mount a virtual backend (S3, git, local) at a virtual path |
 | `hilo backend list` | List all mounted backends |
 | `hilo mount <mount-point> [--triggers] [--allow-other]` | Mount FUSE filesystem |
 | `hilo workspace mount <MOUNT_POINT> [--manifest <PATH>]` | Mount all repos and backends from the workspace manifest (default `.vfs/manifest.yaml`) |

@@ -82,6 +82,6 @@ getfattr -n user.vfs.role /mnt/vfs/src/main.rs
 ### More commands
 
 Hilo also ships three more command families: `hilo backend` (virtual
-S3/git/remote backends), `hilo workspace` (multi-repo mounts) and
+S3/git/local backends), `hilo workspace` (multi-repo mounts) and
 `hilo plugin` (WASM plugin runtime). See `hilo backend --help`,
 `hilo workspace --help` and `hilo plugin --help` for usage.

@@ -202,7 +202,7 @@ hilo serve --mcp
 
 ## `hilo backend`
 
-Manage virtual backends (S3, git, remote, local).
+Manage virtual backends (S3, git, local).
 
 ### `mount`
 

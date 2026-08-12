@@ -33,6 +33,7 @@ hilo/
 ├── hilo-triggers/    # inotify watchers
 ├── hilo-plugins/     # Extism WASM plugin runtime
 ├── hilo-permissions/ # Mode-bit enforcement engine
+├── hilo-ffi/         # UniFFI bindings (Go, Python, Kotlin, Swift)
 └── specs/              # Design documents
 ```
 
