@@ -18,6 +18,11 @@ hilo --help
 
 Requirements: Rust 1.80+, `libfuse3-dev` (for FUSE mount), `attr` (for xattrs).
 
+> ⚠️ **Build time:** the first `cargo build --release` also compiles
+> `duckdb-sys`/`arrow` from source — expect 15-20 min and a full C/C++
+> toolchain (`clang`, `CMake`, `g++`). Subsequent builds are incremental
+> and fast (~seconds).
+
 ## The Problem
 
 Your AI agent reads files to answer questions about code. "What depends on

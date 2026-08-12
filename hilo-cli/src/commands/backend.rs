@@ -59,6 +59,11 @@ pub fn run_mount(args: &MountArgs) -> Result<()> {
                     writable: false,
                     auto_pull_secs: None,
                     cache_dir: None,
+                })
+                .map_err(|e| {
+                    anyhow::anyhow!(
+                        "failed to mount git backend from {url}: {e} — hint: the repository may be private, may not exist, or the URL may be wrong; check the URL and your credentials"
+                    )
                 })?;
             println!(
                 "mounted git {} at {} (worktree {})",

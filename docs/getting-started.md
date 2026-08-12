@@ -24,6 +24,10 @@ sudo apt install libfuse3-dev attr
 # No additional deps needed for CLI-only use
 ```
 
+> ⚠️ **Build time:** the first build compiles `duckdb-sys`/`arrow` from
+> source — expect 15-20 min and a C/C++ toolchain (`clang`, `CMake`,
+> `g++`). Subsequent builds are incremental and fast.
+
 ## First Run
 
 ```bash
