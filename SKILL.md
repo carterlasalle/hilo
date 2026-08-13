@@ -144,3 +144,62 @@ git push origin master
 
 **Repo:** https://github.com/gethilo/hilo
 **Branch:** master
+
+## Field Notes — Verified in Real Use (dogfood 2026-08-13)
+
+From a deep real-use run on a fresh ripgrep clone (111 files): init 5ms,
+warm 1.2s/256 edges, classify 0.18s, FUSE `--daemon` mount instant + clean
+unmount, MCP 15 tools over stdio all responding with structured JSON. The
+plumbing is real. The graph DATA has known gaps — read before querying:
+
+**The `pkg:` form is the only reliable blast-radius query.**
+Every edge in the graph targets `pkg:<name>` pseudo-nodes; there are ZERO
+file→file edges (verified 256/256 on ripgrep). Consequently:
+
+- ✅ `hilo graph impact 'pkg:globset' --max-depth 2` → works (found 3/3 real
+  importers). Use `pkg:<crate>` for impact/related queries via CLI AND MCP
+  (`vfs_graph_impact` `path: "pkg:..."`).
+- ❌ `hilo graph impact <file>` → "No dependents found" ALWAYS (GAP-034, P0).
+  `related <file> --direction reverse` → "No incoming edges" ALWAYS (GAP-034).
+  Do not trust empty results from file-form queries; they are structurally
+  empty, not "no dependents".
+
+**Coverage queries are not meaningful yet.** `graph untested` / MCP
+`vfs_graph_untested` list files lacking `tested_by` edges — but no code path
+ever emits `tested_by` edges, so on any repo it reports ~everything (82/82 on
+ripgrep, including test files). Additionally `classify` misses top-level
+`tests/` and `benches/` dirs (5 of 19 real test files tagged on ripgrep).
+(GAP-036, P1.)
+
+**Parser artifact:** Rust `use crate::{a, b}` / `use foo::{x, y}` brace-groups
+are truncated to `pkg:{\n    a` edge targets (27/256 edges on ripgrep). These
+leak into `graph search` results and `graph stats` "Top dependencies".
+Ignore `pkg:{` rows. (GAP-035, P1; GAP-038 for stats/search hygiene.)
+
+**Symbol extraction is partial.** `graph understand <task>` (positional arg is
+a natural-language TASK, not a file path) shows "(no symbols extracted)" for
+many symbol-rich files (globset lib.rs → nothing, though it defines
+Glob/GlobBuilder/GlobSetBuilder). `graph search` is lexical (TF-IDF/BM25) with
+low scores and can return the right file with the wrong symbol label. (GAP-037.)
+
+**Count semantics:** `graph stats` "Total edges" is the DuckDB-deduped count
+(164); `edges.jsonl` line count (256) is raw with multi-provenance pairs —
+not data loss.
+
+**Gotchas that burned a real user:**
+- `hilo serve` requires `--mcp` (clap-required since GAP-003) and `hilo init`
+  must have run in the project (GAP-031).
+- `hilo meta --set <attr> --value <val> <path>` — attr first, then `--value`,
+  then path; there is no `--read` flag (GAP-004).
+- Binary is `hilo`, not `hilo-cli` (GAP-001).
+- `hilo mount <dir> --daemon` returns immediately; unmount with
+  `fusermount -u <dir>` (GAP-019/027).
+
+**Right-way patterns for agents using Hilo today:**
+1. `hilo init` → `hilo graph warm` → `hilo classify` in the target repo (~2s).
+2. Blast radius: query `pkg:<crate>` symbol form, never file paths.
+3. Orientation: `graph stats` + `graph search "<symbol>"` + `graph module <dir>`.
+4. Metadata: `meta --set` then `getfattr -n user.vfs.<attr>` (or MCP
+   `vfs_get_metadata`).
+5. Trust FUSE (`--daemon`), MCP protocol, xattr round-trips, and speed claims —
+   they all verified clean.
