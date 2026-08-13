@@ -332,6 +332,11 @@ pub fn run_impact(path: &str, max_depth: u32, format: Option<&str>, external: bo
     let graph = GraphDB::open(graph_db_str).context("failed to open DuckDB graph database")?;
 
     let results = if external {
+        // GAP-039: same node-existence check for the external path —
+        // unknown paths must fail loudly, not look like zero dependents.
+        if !graph.file_in_graph(path)? && !Path::new(path).exists() {
+            anyhow::bail!("'{path}' is not in the graph (no such file and no matching graph node)");
+        }
         // For external: parse start file first, then use cross-repo BFS.
         graph.ensure_parsed(path)?;
         hilo_graph::impact::compute_impact_with_external(graph.conn(), path, max_depth, true)

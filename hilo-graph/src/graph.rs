@@ -641,11 +641,24 @@ impl GraphDB {
     /// Parses the start file on-the-fly if not cached, then runs BFS over
     /// whatever edges are in the DuckDB cache. When `max_depth` is 0,
     /// returns empty immediately.
+    ///
+    /// GAP-039: a start path that is neither a known graph node nor a file
+    /// on disk is an error (`'<path>' is not in the graph ...`) — the old
+    /// behavior silently returned "No dependents found" with exit 0,
+    /// indistinguishable from a real node with no dependents.
     pub fn impact_or_parse(
         &self,
         start_path: &str,
         max_depth: u32,
     ) -> GraphResult<Vec<ImpactFile>> {
+        // Node-existence check at query time: unknown paths (not in graph,
+        // not on disk) must fail loudly instead of looking like a node with
+        // zero dependents. Symbol nodes (pkg:/sys:) pass when in the graph.
+        if !self.file_in_graph(start_path)? && !Path::new(start_path).exists() {
+            return Err(GraphError::Other(format!(
+                "'{start_path}' is not in the graph (no such file and no matching graph node)"
+            )));
+        }
         // Parse the start file first (no-op if already cached).
         self.ensure_parsed(start_path)?;
         // Delegate to existing BFS over the DuckDB edges cache.
@@ -744,6 +757,41 @@ mod tests {
         let db = GraphDB::open(":memory:").unwrap();
         let results = db.impact_or_parse(&path, 0).unwrap();
         assert!(results.is_empty());
+    }
+
+    #[test]
+    fn impact_or_parse_unknown_path_errors_not_empty_silence() {
+        // GAP-039: a path absent from both disk and graph must error loudly,
+        // not return an empty result (indistinguishable from a real node
+        // with no dependents).
+        let db = GraphDB::open(":memory:").unwrap();
+        let err = db
+            .impact_or_parse("/nonexistent/path/unknown.rs", 3)
+            .unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("not in the graph"),
+            "error should say 'not in the graph', got: {msg}"
+        );
+        assert!(
+            msg.contains("unknown.rs"),
+            "error should name the path, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn impact_or_parse_symbol_node_in_graph_still_works() {
+        // GAP-039: pkg:/sys: symbol nodes that ARE in the graph must keep
+        // working (documented query form) — the check is node-existence,
+        // not file-existence.
+        let db = GraphDB::open(":memory:").unwrap();
+        let edges = vec![
+            Edge::new("a.go", "pkg:fmt", "imports"),
+            Edge::new("b.go", "pkg:fmt", "imports"),
+        ];
+        db.insert_edges(&edges).unwrap();
+        let results = db.impact_or_parse("pkg:fmt", 3).unwrap();
+        assert_eq!(results.len(), 2, "pkg:fmt should have 2 dependents");
     }
 
     // ── Free-function tests: ensure_schema + insert_edges_into ──────────
