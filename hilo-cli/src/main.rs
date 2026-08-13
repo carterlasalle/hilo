@@ -24,7 +24,7 @@ enum Commands {
     Graph(GraphCommand),
     /// Run a Hilo server (MCP stdio transport). Exposes 15 vfs_* tools — see README.
     Serve(ServeArgs),
-    /// Manage virtual backends (S3, git, remote, local).
+    /// Manage virtual backends (S3, git, local).
     #[command(subcommand)]
     Backend(commands::backend::BackendCommand),
     /// Mount a Hilo virtual filesystem via FUSE.

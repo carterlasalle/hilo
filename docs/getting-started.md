@@ -51,6 +51,9 @@ hilo graph related src/main.rs --relation imports
 
 ### Via MCP (Claude Desktop, Hermes, Continue)
 
+The MCP server needs an initialized project — run `hilo init` in the
+project directory first (it creates `manifest.yaml` / `.vfs/manifest.yaml`).
+
 ```bash
 hilo serve --mcp
 ```

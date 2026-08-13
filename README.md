@@ -123,7 +123,7 @@ hilo mount /mnt/vfs
 ls /mnt/vfs/
 getfattr -n user.vfs.role /mnt/vfs/src/main.rs
 
-# Or serve MCP for agents
+# Or serve MCP for agents (requires `hilo init` to have been run in the project first)
 hilo serve --mcp
 ```
 
