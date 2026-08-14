@@ -357,41 +357,56 @@ impl GraphDB {
             Direction::Reverse => "\"to\"",
         };
 
-        let (sql, params_vec): (String, Vec<Box<dyn duckdb::ToSql>>) = if let Some(rel) = rel_filter
-        {
-            (
-                format!(
-                    "SELECT \"from\", \"to\", rel, provenance, confidence FROM edges WHERE {column} = ? AND rel = ?"
-                ),
-                vec![
-                    Box::new(path.to_string()),
-                    Box::new(rel.to_string()),
-                ],
-            )
-        } else {
-            (
-                format!(
-                    "SELECT \"from\", \"to\", rel, provenance, confidence FROM edges WHERE {column} = ?"
-                ),
-                vec![Box::new(path.to_string())],
-            )
-        };
-        let param_refs: Vec<&dyn duckdb::ToSql> = params_vec.iter().map(|p| p.as_ref()).collect();
-
-        let mut stmt = self.conn.prepare(&sql)?;
-        let rows = stmt.query_map(param_refs.as_slice(), |row| {
-            Ok(Edge {
-                from: row.get::<_, String>(0)?,
-                to: row.get::<_, String>(1)?,
-                rel: row.get::<_, String>(2)?,
-                provenance: row.get::<_, String>(3)?,
-                confidence: row.get::<_, f64>(4)?,
-            })
-        })?;
+        // GAP-034: reverse lookups on a file must also match dependents that
+        // target the file's crate `pkg:<name>` node — the parser emits pkg:
+        // edges, not file→file edges, so a plain `WHERE "to" = <file>`
+        // returns nothing for files that are only imported as part of their
+        // crate. Symbol nodes (`pkg:...`/`sys:...`) resolve to None.
+        let mut targets: Vec<String> = vec![path.to_string()];
+        if direction == Direction::Reverse {
+            if let Some(pkg) = crate::resolution::PkgResolver::new().pkg_node(path) {
+                targets.push(pkg);
+            }
+        }
 
         let mut edges = Vec::new();
-        for row in rows {
-            edges.push(row?);
+        for target in &targets {
+            let (sql, params_vec): (String, Vec<Box<dyn duckdb::ToSql>>) = if let Some(rel) =
+                rel_filter
+            {
+                (
+                        format!(
+                            "SELECT \"from\", \"to\", rel, provenance, confidence FROM edges WHERE {column} = ? AND rel = ?"
+                        ),
+                        vec![
+                            Box::new(target.clone()),
+                            Box::new(rel.to_string()),
+                        ],
+                    )
+            } else {
+                (
+                        format!(
+                            "SELECT \"from\", \"to\", rel, provenance, confidence FROM edges WHERE {column} = ?"
+                        ),
+                        vec![Box::new(target.clone())],
+                    )
+            };
+            let param_refs: Vec<&dyn duckdb::ToSql> =
+                params_vec.iter().map(|p| p.as_ref()).collect();
+
+            let mut stmt = self.conn.prepare(&sql)?;
+            let rows = stmt.query_map(param_refs.as_slice(), |row| {
+                Ok(Edge {
+                    from: row.get::<_, String>(0)?,
+                    to: row.get::<_, String>(1)?,
+                    rel: row.get::<_, String>(2)?,
+                    provenance: row.get::<_, String>(3)?,
+                    confidence: row.get::<_, f64>(4)?,
+                })
+            })?;
+            for row in rows {
+                edges.push(row?);
+            }
         }
         Ok(edges)
     }

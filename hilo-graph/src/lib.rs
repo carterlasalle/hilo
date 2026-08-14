@@ -15,6 +15,7 @@ pub mod graph;
 pub mod impact;
 pub mod parser;
 pub mod provenance;
+pub mod resolution;
 pub mod rules;
 pub mod semantic;
 pub mod signal;
