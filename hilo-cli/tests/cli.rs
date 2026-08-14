@@ -271,10 +271,10 @@ fn graph_warm_language_filter_unknown_errors() {
     let _ = fs::remove_dir_all(&dir);
 }
 
-// ─────────────────────── graph impact (empty) ───────────────────────
+// ─────────────────────── graph impact (absent path) ───────────────────────
 
 #[test]
-fn graph_impact_nonexistent_file_returns_empty() {
+fn graph_impact_nonexistent_file_errors() {
     let dir = unique_tempdir("impact");
 
     let output = Command::new(BIN)
@@ -283,21 +283,18 @@ fn graph_impact_nonexistent_file_returns_empty() {
         .output()
         .expect("failed to spawn hilo graph impact");
 
-    // Impact on a nonexistent file should exit 0 with an "empty" or "no" message,
-    // not crash.
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Contract (GAP-039): a path absent from the graph AND from disk must fail
+    // loudly with a non-zero exit and a "not in the graph" error — not silently
+    // succeed with an empty result that is indistinguishable from a real node
+    // with no dependents.
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        output.status.success(),
-        "graph impact on nonexistent file should succeed (exit 0), stderr: {stderr}"
+        !output.status.success(),
+        "graph impact on nonexistent file should exit non-zero, stderr: {stderr}"
     );
-    // The output should indicate no dependents were found.
     assert!(
-        stdout.contains("0 file")
-            || stdout.is_empty()
-            || stdout.contains("no files")
-            || stdout.to_lowercase().contains("no dependents"),
-        "graph impact should report 0 affected files, got: {stdout}"
+        stderr.contains("is not in the graph"),
+        "stderr should identify the path as not in the graph, got: {stderr}"
     );
 
     let _ = fs::remove_dir_all(&dir);
