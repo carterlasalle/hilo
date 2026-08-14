@@ -289,3 +289,4 @@
 {"from":"hilo-mcp/tests/mcp_test.rs","to":"pkg:tempfile","rel":"imports","provenance":"ast_exact","confidence":1.0}
 {"from":"hilo-graph/tests/fixtures/handler.go","to":"hilo-graph/tests/fixtures/handler_test.go","rel":"tests","provenance":"heuristic","confidence":0.8}
 {"from":"hilo-graph/tests/fixtures/handler_test.go","to":"hilo-graph/tests/fixtures/handler.go","rel":"tested_by","provenance":"heuristic","confidence":0.8}
+{"from":"hilo-cli/src/commands/backend.rs","to":"pkg:std","rel":"imports","provenance":"ast_exact","confidence":1.0}
