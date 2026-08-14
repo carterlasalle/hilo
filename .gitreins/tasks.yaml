@@ -277,3 +277,39 @@ tasks:
   status: complete
   created_at: '2026-08-13T17:41:38.516893+00:00'
   completed_at: '2026-08-13T17:57:28.108181+00:00'
+- id: gap-035-rust-use-brace-groups
+  title: 'GAP-035: Rust multi-name use statements expand to per-symbol edges (no pkg:{
+    garbage)'
+  criteria:
+  - '`grep -c ''pkg:{'' .vfs/graph/edges.jsonl` == 0 after `hilo graph warm` on a
+    repo with multi-name use statements (warpfs itself has 97; ripgrep had 27 garbage
+    edges before the fix)'
+  - '`cargo test -p hilo-graph --lib parser::tests::rust_use_brace_groups_expand_per_symbol`
+    passes (bare/prefixed/nested groups expand per symbol; aliases stripped; self
+    resolves to parent path; no pkg:{ targets)'
+  - '`cargo test -p hilo-graph --lib parser::tests::rust_pub_use_visibility_and_alias_stripped`
+    passes (pub/pub(crate)/pub(super) use stripped; no pub/crate/self leaks)'
+  - cargo check --workspace passes and cargo fmt --all --check exits 0
+  status: complete
+  created_at: '2026-08-14T13:22:18.683632+00:00'
+  completed_at: '2026-08-14T13:23:39.653249+00:00'
+- id: gap-034-file-level-pkg-resolution
+  title: 'GAP-034: file-level impact/related queries resolve to pkg nodes (resolution
+    layer)'
+  criteria:
+  - '`/home/kara/warpfs/target/release/hilo graph impact crates/globset/src/lib.rs`
+    run in /tmp/ripgrep lists >=1 dependent (was ''No dependents found'' before the
+    fix)'
+  - '`/home/kara/warpfs/target/release/hilo graph related crates/globset/src/lib.rs
+    --direction reverse` run in /tmp/ripgrep returns the incoming pkg:globset edge
+    (was ''No incoming edges'')'
+  - '`/home/kara/warpfs/target/release/hilo graph impact ''pkg:globset''` run in /tmp/ripgrep
+    still returns the same dependent(s) (symbol-node queries preserved)'
+  - MCP vfs_graph_impact on crates/globset/src/lib.rs (hilo serve --mcp, /tmp/ripgrep)
+    returns dependents with total >= 1
+  - '`cargo test -p hilo_graph --lib` passes including resolution::tests (5) and impact::tests::impact_on_crate_root_resolves_pkg_dependents
+    (new)'
+  - cargo check --workspace passes and cargo fmt --all --check exits 0
+  status: complete
+  created_at: '2026-08-14T14:12:40.772346+00:00'
+  completed_at: '2026-08-14T14:21:02.375916+00:00'
