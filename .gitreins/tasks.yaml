@@ -353,3 +353,25 @@ tasks:
   status: complete
   created_at: '2026-08-15T11:33:33.484398+00:00'
   completed_at: '2026-08-15T11:35:38.263558+00:00'
+- id: gap-040-meta-error-prefix
+  title: 'GAP-040: hilo meta --set error message shows exactly one user.vfs. prefix'
+  criteria:
+  - target/release/hilo meta --set user.vfs.feature --value probe /etc/hostname 2>&1
+    | grep -c 'user.vfs.user.vfs' == 0
+  - target/release/hilo meta --set user.vfs.feature --value probe /etc/hostname 2>&1
+    | grep -o 'user.vfs.' | wc -l == 1
+  - grep -c 'user.vfs.{name}' hilo-cli/src/commands/meta.rs == 0
+  status: complete
+  created_at: '2026-08-15T17:02:34.333099+00:00'
+  completed_at: '2026-08-15T17:02:39.024290+00:00'
+- id: gap-038-stats-dedup-note-always
+  title: 'GAP-038 reopen: hilo graph stats ALWAYS shows distinct/raw dedup note'
+  criteria:
+  - target/release/hilo graph stats | grep -c 'distinct / .* raw (edges.jsonl)' ==
+    1
+  - target/release/hilo graph search glob | grep -c 'pkg:{' == 0
+  - grep -c 'Some(raw) if raw as i64 != stats.total_edges' hilo-cli/src/commands/graph.rs
+    == 0
+  status: complete
+  created_at: '2026-08-15T17:02:34.466237+00:00'
+  completed_at: '2026-08-15T17:03:26.410524+00:00'
