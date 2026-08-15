@@ -408,16 +408,14 @@ pub fn run_stats() -> Result<()> {
     }
 
     // GAP-038: DuckDB dedupes multi-provenance edges, so the distinct edge
-    // count can be lower than the raw edges.jsonl line count — surface both
-    // so the delta is explained instead of looking like a bug.
+    // count can be lower than the raw edges.jsonl line count — always
+    // surface both so the delta is explained instead of looking like a bug.
     match raw_edges_jsonl_count(&cwd) {
-        Some(raw) if raw as i64 != stats.total_edges => {
-            println!(
-                "Total edges: {} distinct / {} raw (edges.jsonl)",
-                stats.total_edges, raw
-            );
-        }
-        _ => println!("Total edges: {}", stats.total_edges),
+        Some(raw) => println!(
+            "Total edges: {} distinct / {} raw (edges.jsonl)",
+            stats.total_edges, raw
+        ),
+        None => println!("Total edges: {}", stats.total_edges),
     }
     println!("Total files: {}", stats.total_files);
     if let Some(ref mc) = stats.most_connected {
