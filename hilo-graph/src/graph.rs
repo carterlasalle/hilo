@@ -428,8 +428,16 @@ impl GraphDB {
 
     /// Find files that have import edges but no `tested_by` edges pointing at them.
     ///
-    /// Returns the list of source files that import other files but are not
-    /// covered by any test (sorted alphabetically).
+    /// Test and bench files are excluded: they legitimately have `imports`
+    /// edges (they import the crate under test) without ever being the
+    /// *target* of a `tested_by` edge, so an unfiltered query would list
+    /// every test file as "untested". Files matching the same
+    /// depth-agnostic test/bench path patterns used by `classify` (top-level
+    /// `tests/`/`benches/`, nested `crates/*/tests/`, `*_test.rs`, ...) are
+    /// filtered out before returning.
+    ///
+    /// Returns the list of *production* source files that import other files
+    /// but are not covered by any test (sorted alphabetically).
     pub fn untested_files(&self) -> GraphResult<Vec<String>> {
         let mut stmt = self.conn.prepare(
             "SELECT DISTINCT \"from\" FROM edges \
@@ -442,6 +450,10 @@ impl GraphDB {
         for r in rows {
             files.push(r?);
         }
+        // Exclude test/bench files — they are not "untested production code".
+        // Same predicate classify uses for role=test, so the two commands
+        // can never disagree about a file (GAP-036).
+        files.retain(|f| !crate::classify::is_test_file(f));
         Ok(files)
     }
 
@@ -1011,5 +1023,57 @@ mod tests {
         let db2 = GraphDB::open(db_path_str).unwrap();
         let count = db2.count_edges().unwrap();
         assert_eq!(count, 2, "re-open must not duplicate edges");
+    }
+
+    #[test]
+    fn untested_files_excludes_test_and_bench_files() {
+        // GAP-036: test/bench files have `imports` edges (they import the
+        // crate under test) but are never the *target* of a `tested_by`
+        // edge, so an unfiltered query lists every test file as untested.
+        let db = GraphDB::open(":memory:").unwrap();
+        let edges = vec![
+            // Production file with imports but no tests -> genuinely untested.
+            Edge::new("src/util.rs", "pkg:std", "imports"),
+            // Production file imported by a test -> covered.
+            Edge::new("src/lib.rs", "pkg:std", "imports"),
+            Edge::new("tests/lib_test.rs", "src/lib.rs", "imports"),
+            Edge::new("tests/lib_test.rs", "src/lib.rs", "tested_by"),
+            // Bench file with an imports edge -> must not appear.
+            Edge::new("benches/graph_bench.rs", "src/lib.rs", "imports"),
+            // Nested crate-level test file -> must not appear.
+            Edge::new(
+                "crates/globset/tests/matcher_test.rs",
+                "pkg:globset",
+                "imports",
+            ),
+        ];
+        db.insert_edges(&edges).unwrap();
+
+        let untested = db.untested_files().unwrap();
+        assert!(
+            untested.contains(&"src/util.rs".to_string()),
+            "genuinely untested production file must be listed, got: {untested:?}"
+        );
+        assert!(
+            !untested.contains(&"src/lib.rs".to_string()),
+            "tested file must not be listed, got: {untested:?}"
+        );
+        assert!(
+            !untested.contains(&"tests/lib_test.rs".to_string()),
+            "test file must be excluded from untested, got: {untested:?}"
+        );
+        assert!(
+            !untested.contains(&"benches/graph_bench.rs".to_string()),
+            "bench file must be excluded from untested, got: {untested:?}"
+        );
+        assert!(
+            !untested.contains(&"crates/globset/tests/matcher_test.rs".to_string()),
+            "nested test file must be excluded from untested, got: {untested:?}"
+        );
+        assert_eq!(
+            untested.len(),
+            1,
+            "only src/util.rs should remain, got: {untested:?}"
+        );
     }
 }
