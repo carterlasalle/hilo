@@ -374,6 +374,14 @@ pub fn run_impact(path: &str, max_depth: u32, format: Option<&str>, external: bo
     Ok(())
 }
 
+/// Count non-empty lines in `.vfs/graph/edges.jsonl` (the raw edge records
+/// before DuckDB dedup). `None` when the file doesn't exist (JIT-only graph).
+fn raw_edges_jsonl_count(cwd: &std::path::Path) -> Option<usize> {
+    let path = cwd.join(".vfs").join("graph").join("edges.jsonl");
+    let content = std::fs::read_to_string(path).ok()?;
+    Some(content.lines().filter(|l| !l.trim().is_empty()).count())
+}
+
 /// Print summary statistics from the dependency graph.
 ///
 /// An empty cache is a valid state (not an error) — the graph starts
@@ -399,7 +407,18 @@ pub fn run_stats() -> Result<()> {
         return Ok(());
     }
 
-    println!("Total edges: {}", stats.total_edges);
+    // GAP-038: DuckDB dedupes multi-provenance edges, so the distinct edge
+    // count can be lower than the raw edges.jsonl line count — surface both
+    // so the delta is explained instead of looking like a bug.
+    match raw_edges_jsonl_count(&cwd) {
+        Some(raw) if raw as i64 != stats.total_edges => {
+            println!(
+                "Total edges: {} distinct / {} raw (edges.jsonl)",
+                stats.total_edges, raw
+            );
+        }
+        _ => println!("Total edges: {}", stats.total_edges),
+    }
     println!("Total files: {}", stats.total_files);
     if let Some(ref mc) = stats.most_connected {
         println!("Most connected: {mc}");

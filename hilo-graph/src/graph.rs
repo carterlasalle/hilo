@@ -541,10 +541,13 @@ impl GraphDB {
             |row| row.get::<_, i64>(0),
         )?;
 
-        // Top dependencies by reference count.
+        // Top dependencies by reference count. Malformed `pkg:{` pseudo-nodes
+        // (legacy garbage from unresolvable multi-name use statements, GAP-035)
+        // are excluded — they are not real dependencies (GAP-038).
         let mut stmt = self.conn.prepare(
             "SELECT \"to\", COUNT(*) AS cnt \
              FROM edges \
+             WHERE \"to\" NOT LIKE 'pkg:{%' \
              GROUP BY \"to\" \
              ORDER BY cnt DESC \
              LIMIT 10",
