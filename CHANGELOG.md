@@ -2,6 +2,32 @@
 
 All notable changes to Hilo are documented in this file.
 
+## [Unreleased] — 2026-08
+
+### Added
+
+- **`hilo graph clean`** — purge the cached dependency graph (edges.jsonl,
+  graph.db, `.last_warm`) so the next `hilo graph warm` rebuilds from scratch;
+  stale edges from renamed/moved files no longer accumulate
+- **`hilo mount --daemon`** — background FUSE mounting: the CLI re-execs and
+  detaches, returning immediately; unmount with `fusermount -u`
+- **Git and local backend mount types** — `hilo backend mount --type git`
+  (clone/pull a repository) and `--type local` (disk passthrough) are now
+  wired end-to-end
+
+### Changed
+
+- **Actionable git-backend mount errors** — bad repository URLs now produce a
+  clear error message and a non-zero exit instead of a silent failure
+- **MCP manifest prerequisite** — the no-manifest error now says
+  "Run `hilo init` in the project directory first", and the MCP sections of
+  the README and getting-started guide state the `hilo init` prerequisite
+- **Backend help text** — `hilo --help` backend description lists only the
+  supported types (S3, git, local); the non-existent `remote` type was dropped
+- **Doc surface alignment (GAP-019..029)** — mount foreground note, SUPPORT
+  repo URL, command-family docs, crate structure lists, MCP tool tables, and
+  graph/classify flag lists aligned with the real CLI surface
+
 ## [0.2.0] — 2026-07-16
 
 ### Added
@@ -31,7 +57,7 @@ All notable changes to Hilo are documented in this file.
 
 ### Changed
 
-- `hilo graph discover` renamed to `hilo graph warm` (Discover kept as alias)
+- `hilo graph warm` is the canonical batch graph build command (the former `discover` subcommand is kept as a hidden alias for backward compatibility)
 - Edge struct extended with provenance + confidence fields
 - DuckDB unique index includes provenance column
 - Signal engine integrated into semantic search anchor discovery

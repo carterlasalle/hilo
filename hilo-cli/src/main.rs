@@ -22,9 +22,9 @@ enum Commands {
     /// Dependency-graph discovery, statistics, and impact analysis.
     #[command(subcommand)]
     Graph(GraphCommand),
-    /// Run a Hilo server (MCP stub).
+    /// Run a Hilo server (MCP stdio transport). Exposes 15 vfs_* tools — see README.
     Serve(ServeArgs),
-    /// Manage virtual backends (S3, git, remote, local).
+    /// Manage virtual backends (S3, git, local).
     #[command(subcommand)]
     Backend(commands::backend::BackendCommand),
     /// Mount a Hilo virtual filesystem via FUSE.
@@ -49,6 +49,9 @@ struct MountArgs {
     /// Allow other users to access the mount.
     #[arg(long)]
     allow_other: bool,
+    /// Run in the background: detach from the terminal and return immediately.
+    #[arg(long)]
+    daemon: bool,
 }
 
 #[derive(clap::Args)]
@@ -95,6 +98,9 @@ enum GraphCommand {
     RuleList,
     /// Execute a named rule query against the dependency graph.
     RuleCheck(RuleCheckArgs),
+    /// Delete the cached dependency graph (edges.jsonl + DuckDB cache) so
+    /// the next `graph warm` re-parses every source file from scratch.
+    Clean,
 }
 
 #[derive(clap::Args)]
@@ -252,14 +258,18 @@ fn main() {
         Commands::Graph(GraphCommand::Untested) => graph::run_untested(),
         Commands::Graph(GraphCommand::RuleList) => graph::run_rule_list(),
         Commands::Graph(GraphCommand::RuleCheck(args)) => graph::run_rule_check(&args.name),
+        Commands::Graph(GraphCommand::Clean) => graph::run_clean(),
         Commands::Serve(args) => serve::run(args.mcp),
         Commands::Backend(commands::backend::BackendCommand::Mount(args)) => {
             backend::run_mount(&args)
         }
         Commands::Backend(commands::backend::BackendCommand::List) => backend::run_list(),
-        Commands::Mount(args) => {
-            mount::run_mount(&args.mount_point, args.triggers, args.allow_other)
-        }
+        Commands::Mount(args) => mount::run_mount(
+            &args.mount_point,
+            args.triggers,
+            args.allow_other,
+            args.daemon,
+        ),
         Commands::Workspace(WorkspaceCommand::Mount(args)) => {
             workspace::run_workspace_mount(&args.manifest, &args.mount_point)
         }

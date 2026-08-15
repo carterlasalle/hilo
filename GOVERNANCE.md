@@ -19,4 +19,4 @@ See [SECURITY.md](SECURITY.md) for the vulnerability reporting process.
 
 ## Roadmap
 
-The project roadmap is managed through `.coding-hermes/tasks.md` and the coding-hermes autonomous development fleet.
+The project roadmap is managed through `.coding-hermes/board/tasks.jsonl` and the coding-hermes autonomous development fleet.

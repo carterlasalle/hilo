@@ -12,10 +12,16 @@ test coverage, blast radius — without burning context window on file reads.
 ```bash
 git clone https://github.com/gethilo/hilo.git
 cd hilo && cargo build --release
-./target/release/hilo --help
+cp target/release/hilo ~/.cargo/bin/hilo   # put hilo on PATH
+hilo --help
 ```
 
 Requirements: Rust 1.80+, `libfuse3-dev` (for FUSE mount), `attr` (for xattrs).
+
+> ⚠️ **Build time:** the first `cargo build --release` also compiles
+> `duckdb-sys`/`arrow` from source — expect 15-20 min and a full C/C++
+> toolchain (`clang`, `CMake`, `g++`). Subsequent builds are incremental
+> and fast (~seconds).
 
 ## The Problem
 
@@ -110,13 +116,25 @@ hilo graph related <file> --relation imports
 
 # Or mount as a filesystem
 mkdir /mnt/vfs
+# NOTE: hilo mount runs in the FOREGROUND and blocks this terminal until
+# unmounted (Ctrl-C to stop). Run it in a separate terminal, with `&`, or
+# use `hilo mount /mnt/vfs --daemon` to detach it into a background process.
 hilo mount /mnt/vfs
 ls /mnt/vfs/
 getfattr -n user.vfs.role /mnt/vfs/src/main.rs
 
-# Or serve MCP for agents
+# Or serve MCP for agents (requires `hilo init` to have been run in the project first)
 hilo serve --mcp
 ```
+
+## More commands
+
+- `hilo backend mount` — mount a virtual backend (S3, git, local)
+- `hilo backend list` — list mounted backends
+- `hilo workspace mount` — mount all repos and backends from the manifest
+- `hilo workspace unmount` — unmount a workspace
+- `hilo plugin load` — load a WASM plugin into the runtime
+- `hilo plugin list` — list plugins discovered in `.vfs/plugins/`
 
 ## License
 

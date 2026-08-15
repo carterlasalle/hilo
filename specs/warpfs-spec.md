@@ -819,7 +819,7 @@ user.vfs.last_tested="2026-06-14T09:33:14"
 
 - `hilo init` — create .vfs/ directory structure and default manifest
 - `hilo meta <path>` — read/write xattrs on files
-- `hilo graph discover` — tree-sitter parse project, generate edges.jsonl
+- `hilo graph warm` — tree-sitter parse project, generate edges.jsonl
 - `hilo graph related <path>` — query graph edges for a file
 - `hilo graph stats` — graph-wide statistics (DuckDB)
 - `hilo serve --mcp` — MCP server with stdio transport

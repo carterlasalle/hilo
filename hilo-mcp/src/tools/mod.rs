@@ -694,7 +694,7 @@ fn load_manifest() -> McpResult<hilo_core::manifest::Manifest> {
         fallback
     } else {
         return Err(McpError::Protocol(
-            "No manifest found. Create a manifest.yaml or .vfs/manifest.yaml file.".into(),
+            "No manifest found. Run `hilo init` in the project directory first.".into(),
         ));
     };
 

@@ -1,6 +1,6 @@
 # AGENTS.md — Hilo
 
-Agent-first metadata filesystem. Written in Rust, 10 crates, 26-language AST parsing.
+Agent-first metadata filesystem. Written in Rust, 11 crates (incl. hilo-ffi UniFFI bindings), 26-language AST parsing.
 
 ## Build & Test
 
@@ -25,6 +25,7 @@ hilo-fuse/          # FUSE daemon, mount ops, xattr passthrough, workspace mount
 hilo-triggers/      # inotify watchers, debounce, re-discover on change
 hilo-plugins/       # WASM plugin runtime (Extism)
 hilo-permissions/   # Manifest-driven access control
+hilo-ffi/           # UniFFI bindings (Go, Python, Kotlin, Swift)
 ```
 
 ## Git Conventions

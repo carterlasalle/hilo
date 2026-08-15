@@ -8,7 +8,7 @@
 - [CHANGELOG.md](CHANGELOG.md) — release history
 
 ### Issues
-File bugs and feature requests on [GitHub Issues](https://github.com/weis-vale-warp/warpfs/issues).
+File bugs and feature requests on [GitHub Issues](https://github.com/gethilo/hilo/issues).
 
 ### Security
 Report vulnerabilities via the process documented in [SECURITY.md](SECURITY.md). Do NOT file public issues for security bugs.

@@ -328,10 +328,28 @@ fn classify_js(path: &str) -> String {
 fn extract_rust_imports(node: Node, source: &[u8], paths: &mut Vec<String>) {
     if node.kind() == "use_declaration" {
         let text = node.utf8_text(source).unwrap_or("");
-        let trimmed = text.strip_prefix("use ").unwrap_or(text).trim();
-        let crate_name = trimmed.split("::").next().unwrap_or(trimmed);
-        if crate_name != "crate" && crate_name != "self" && crate_name != "super" {
-            paths.push(format!("pkg:{crate_name}"));
+        let mut trimmed = strip_rust_use_visibility(text);
+        if let Some(rest) = trimmed.strip_prefix("use ") {
+            trimmed = rest;
+        }
+        let trimmed = trimmed.trim();
+        if trimmed.contains('{') {
+            // Brace groups: expand to one edge per symbol (`use foo::{a, b}`
+            // → pkg:foo::a, pkg:foo::b) instead of leaking the raw group
+            // text (`pkg:{...}` garbage) into the graph.
+            for symbol in expand_rust_use_group(trimmed) {
+                push_rust_symbol_edge(&symbol, paths);
+            }
+        } else {
+            let path = strip_rust_alias(trimmed).trim_end_matches(';').trim();
+            let crate_name = path.split("::").next().unwrap_or(path);
+            if !crate_name.is_empty()
+                && crate_name != "crate"
+                && crate_name != "self"
+                && crate_name != "super"
+            {
+                paths.push(format!("pkg:{crate_name}"));
+            }
         }
         return;
     }
@@ -353,6 +371,128 @@ fn extract_rust_imports(node: Node, source: &[u8], paths: &mut Vec<String>) {
     for child in children {
         extract_rust_imports(child, source, paths);
     }
+}
+
+/// Strip a leading visibility modifier (`pub`, `pub(crate)`, `pub(super)`,
+/// `pub(in path)`) from a Rust `use` declaration body.
+fn strip_rust_use_visibility(text: &str) -> &str {
+    let t = text.trim();
+    if let Some(rest) = t.strip_prefix("pub(crate) ") {
+        rest
+    } else if let Some(rest) = t.strip_prefix("pub(super) ") {
+        rest
+    } else if let Some(rest) = t.strip_prefix("pub(in ") {
+        // `pub(in path) use ...` — skip past the closing paren.
+        match rest.find(')') {
+            Some(end) => rest[end + 1..].trim(),
+            None => rest,
+        }
+    } else if let Some(rest) = t.strip_prefix("pub ") {
+        rest
+    } else {
+        t
+    }
+}
+
+/// Strip a `as Alias` suffix (`use foo::Bar as Baz;` → `foo::Bar`).
+fn strip_rust_alias(path: &str) -> &str {
+    path.split(" as ").next().unwrap_or(path).trim()
+}
+
+/// Emit one `pkg:` edge per expanded use-symbol; skips local pseudo-prefixes
+/// (`crate`/`self`/`super`) and empty/alias-only segments.
+fn push_rust_symbol_edge(symbol: &str, paths: &mut Vec<String>) {
+    let symbol = strip_rust_alias(symbol).trim_end_matches(';').trim();
+    if symbol.is_empty() {
+        return;
+    }
+    let first = symbol.split("::").next().unwrap_or(symbol);
+    if first != "crate" && first != "self" && first != "super" {
+        paths.push(format!("pkg:{symbol}"));
+    }
+}
+
+/// Expand a Rust `use` tree body into full paths, expanding `{...}` groups
+/// into one path per symbol. Nested groups are expanded recursively.
+///
+/// `use foo::{a, b}`      → ["foo::a", "foo::b"]
+/// `use {a, b}`           → ["a", "b"]
+/// `use foo::{a::{x, y}}` → ["foo::a::x", "foo::a::y"]
+/// `use foo::{self, Bar}` → ["foo", "foo::Bar"]
+fn expand_rust_use_group(tree: &str) -> Vec<String> {
+    let tree = tree.trim().trim_end_matches(';').trim();
+    if !tree.contains('{') {
+        return vec![strip_rust_alias(tree).to_string()];
+    }
+    let open = tree.find('{').unwrap();
+    let prefix = tree[..open].trim().trim_end_matches(':').trim();
+    // Find the matching close brace, respecting nesting.
+    let mut depth = 0usize;
+    let mut close = None;
+    for (i, ch) in tree[open..].char_indices() {
+        match ch {
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    close = Some(open + i);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let close = close.unwrap_or(tree.len() - 1);
+    let body = &tree[open + 1..close];
+    let mut out = Vec::new();
+    for item in split_rust_use_items(body) {
+        let item = item.trim();
+        if item.is_empty() {
+            continue;
+        }
+        if item.contains('{') {
+            for sub in expand_rust_use_group(item) {
+                out.push(join_rust_use_path(prefix, &sub));
+            }
+        } else if item == "self" || item == "*" {
+            // `self`/glob refer to the parent path itself.
+            if !prefix.is_empty() {
+                out.push(prefix.to_string());
+            }
+        } else {
+            out.push(join_rust_use_path(prefix, strip_rust_alias(item)));
+        }
+    }
+    out
+}
+
+/// Join a group prefix and an item path, handling a bare group (`{a, b}`).
+fn join_rust_use_path(prefix: &str, item: &str) -> String {
+    if prefix.is_empty() {
+        item.to_string()
+    } else {
+        format!("{prefix}::{item}")
+    }
+}
+
+/// Split a `{...}` group body on top-level commas (nesting-aware).
+fn split_rust_use_items(body: &str) -> Vec<&str> {
+    let mut items = Vec::new();
+    let mut depth = 0usize;
+    let mut start = 0usize;
+    for (i, ch) in body.char_indices() {
+        match ch {
+            '{' => depth += 1,
+            '}' => depth -= 1,
+            ',' if depth == 0 => {
+                items.push(&body[start..i]);
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    items.push(&body[start..]);
+    items
 }
 
 // ── Java ────────────────────────────────────────────────────────────
@@ -1177,6 +1317,58 @@ mod tests {
         );
         assert!(imports.contains(&"pkg:std".into()));
         assert!(imports.contains(&"pkg:serde".into()));
+    }
+
+    #[test]
+    fn rust_use_brace_groups_expand_per_symbol() {
+        let imports = parse(
+            Language::Rust,
+            r#"use {serde::Serialize, anyhow::Context as Ctx};
+use std::{collections::HashMap, io::{Read, Write}};
+use foo::{self, Bar};
+use crate::{grep_matcher, globset};
+"#,
+        );
+        // Bare group: one edge per symbol.
+        assert!(imports.contains(&"pkg:serde::Serialize".into()));
+        // Alias stripped, symbol path kept.
+        assert!(imports.contains(&"pkg:anyhow::Context".into()));
+        // Prefixed + nested groups expand recursively.
+        assert!(imports.contains(&"pkg:std::collections::HashMap".into()));
+        assert!(imports.contains(&"pkg:std::io::Read".into()));
+        assert!(imports.contains(&"pkg:std::io::Write".into()));
+        // `self` item resolves to the parent path.
+        assert!(imports.contains(&"pkg:foo".into()));
+        assert!(imports.contains(&"pkg:foo::Bar".into()));
+        // `crate::` groups are local — skipped entirely.
+        assert!(!imports.contains(&"pkg:crate".into()));
+        // The core regression: no raw group text may leak into edge targets.
+        assert!(imports.iter().all(|p| !p.starts_with("pkg:{")));
+    }
+
+    #[test]
+    fn rust_pub_use_visibility_and_alias_stripped() {
+        let imports = parse(
+            Language::Rust,
+            r#"pub use serde_json as json;
+pub(crate) use self::imp::*;
+pub(super) use crate::flags::{A, B};
+use anyhow::{bail, Context as _};
+"#,
+        );
+        // Visibility + alias stripped, first segment kept for single paths.
+        assert!(imports.contains(&"pkg:serde_json".into()));
+        // Local pseudo-prefixes never become pkg edges.
+        assert!(!imports.contains(&"pkg:self".into()));
+        assert!(!imports.contains(&"pkg:crate".into()));
+        assert!(!imports.contains(&"pkg:pub".into()));
+        // Group symbols under a pub(crate)-prefixed path still expand.
+        assert!(imports.contains(&"pkg:anyhow::bail".into()));
+        assert!(imports.contains(&"pkg:anyhow::Context".into()));
+        // No raw group / visibility garbage in any edge target.
+        assert!(imports
+            .iter()
+            .all(|p| !p.contains('{') && !p.contains("pub")));
     }
 
     #[test]

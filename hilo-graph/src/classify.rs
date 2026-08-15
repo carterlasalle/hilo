@@ -160,7 +160,16 @@ fn language_to_ts(lang: Language) -> tree_sitter::Language {
 
 // ── Test file detection ─────────────────────────────────────────────
 
-fn is_test_file(path: &str) -> bool {
+/// Depth-agnostic test/bench directory check — any path component equal to
+/// `test`, `tests`, `benches`, or `__tests__` marks a test/bench file,
+/// whether top-level (`tests/foo.rs`) or nested (`crates/*/tests/`).
+/// Component equality (not substring) avoids false positives like
+/// `src/test_utils/` or `mytests/`.
+fn is_test_dir_component(comp: &str) -> bool {
+    matches!(comp, "test" | "tests" | "benches" | "__tests__")
+}
+
+pub(crate) fn is_test_file(path: &str) -> bool {
     let lower = path.to_lowercase();
     // Universal test patterns
     if lower.contains("_test.") || lower.contains(".test.") || lower.contains("_spec.") {
@@ -169,7 +178,10 @@ fn is_test_file(path: &str) -> bool {
     if lower.starts_with("test_") || lower.ends_with("_test.go") {
         return true;
     }
-    if lower.contains("/test/") || lower.contains("/tests/") || lower.contains("\\test\\") {
+    // Directory-based detection — depth-agnostic: top-level `tests/` and
+    // `benches/` (no leading slash) are matched exactly like nested
+    // `crates/*/tests/`, across both `/` and `\` path separators.
+    if lower.split(['/', '\\']).any(is_test_dir_component) {
         return true;
     }
     // Language-specific
@@ -1066,6 +1078,26 @@ mod tests {
         assert!(is_test_file("src/FooTest.java"));
         assert!(!is_test_file("src/main.rs"));
         assert!(!is_test_file("lib/util.py"));
+    }
+
+    #[test]
+    fn test_test_file_detection_depth_agnostic() {
+        // Top-level tests/ and benches/ dirs (no leading slash — GAP-036)
+        assert!(is_test_file("tests/json.rs"));
+        assert!(is_test_file("tests/index/basic.rs"));
+        assert!(is_test_file("benches/graph_bench.rs"));
+        // Nested crate-level tests/ and benches/
+        assert!(is_test_file("crates/ignore/tests/gitignore_skip_bom.rs"));
+        assert!(is_test_file("crates/globset/benches/bench.rs"));
+        // JS __tests__ dir
+        assert!(is_test_file("src/components/__tests__/button.test.tsx"));
+        // Windows separators
+        assert!(is_test_file("tests\\json.rs"));
+        assert!(is_test_file("crates\\ignore\\tests\\gitignore_skip_bom.rs"));
+        // Negative: component equality must not false-positive on test_utils/
+        assert!(!is_test_file("src/test_utils.rs"));
+        assert!(!is_test_file("crates/globset/src/test_util.rs"));
+        assert!(!is_test_file("src/lib.rs"));
     }
 
     #[test]

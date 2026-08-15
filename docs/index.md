@@ -25,13 +25,16 @@ without reading files.
 - **[hilo-plugins](hilo-plugins.md)** — Extism WASM plugin runtime
 - **[hilo-permissions](hilo-permissions.md)** — glob-based permission engine with mode bits
 - **[hilo-cli](hilo-cli.md)** — command-line interface: all subcommands and flags
+- **[hilo-ffi](hilo-ffi.md)** — UniFFI language bindings for Go, Python, Kotlin, Swift
 
 ## Quick Links
 
 - [GitHub Repository](https://github.com/gethilo/hilo)
-- [Design Document](https://totalwindupflightsystems.github.io/reports/hermes-vfs-design.html)
-- [Value Test Report](https://totalwindupflightsystems.github.io/reports/hilo-value-test.html)
+- [Hilo Docs](https://gethilo.github.io/hilo/) — rendered documentation site
 
 ## Supported Languages
 
-Go, Python, TypeScript, Rust, JavaScript, Java, C, C++, Ruby
+Go, Python, TypeScript, Rust, JavaScript,
+Java, C, C++, Ruby, C#, Kotlin, PHP,
+Swift, Elixir, Haskell, Erlang, Scala,
+Zig, Lua, Dart, Clojure, OCaml, R, Julia, Elm, Nim

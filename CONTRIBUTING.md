@@ -33,6 +33,7 @@ hilo/
 ├── hilo-triggers/    # inotify watchers
 ├── hilo-plugins/     # Extism WASM plugin runtime
 ├── hilo-permissions/ # Mode-bit enforcement engine
+├── hilo-ffi/         # UniFFI bindings (Go, Python, Kotlin, Swift)
 └── specs/              # Design documents
 ```
 
@@ -46,7 +47,8 @@ Co-authored-by: wojons <wojonstech@gmail.com>
 
 Crate name matches Cargo.toml `name` field: `hilo_core`, `hilo_graph`,
 `hilo_metadata`, `hilo_cli`, `hilo_mcp`, `hilo_backends`,
-`hilo_triggers`, `hilo_fuse`, `hilo_plugins`, `hilo_permissions`.
+`hilo_triggers`, `hilo_fuse`, `hilo_plugins`, `hilo_permissions`,
+`hilo_ffi`.
 
 ## Pre-commit Checks
 

@@ -12,6 +12,7 @@ anyhow = "1"
 serde = "1"
 serde_yaml = "0.9"
 rayon = "1"
+libc = "0.2"
 
 # Internal crates (package names use underscores; directories use hyphens)
 hilo_core = { path = "../hilo-core" }

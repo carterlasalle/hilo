@@ -6,7 +6,8 @@
 git clone https://github.com/gethilo/hilo.git
 cd hilo
 cargo build --release
-./target/release/hilo --help
+cp target/release/hilo ~/.cargo/bin/hilo   # put hilo on PATH
+hilo --help
 ```
 
 ### Requirements
@@ -23,6 +24,10 @@ sudo apt install libfuse3-dev attr
 # No additional deps needed for CLI-only use
 ```
 
+> ⚠️ **Build time:** the first build compiles `duckdb-sys`/`arrow` from
+> source — expect 15-20 min and a C/C++ toolchain (`clang`, `CMake`,
+> `g++`). Subsequent builds are incremental and fast.
+
 ## First Run
 
 ```bash
@@ -31,7 +36,7 @@ cd my-project
 hilo init
 
 # 2. Build the dependency graph
-hilo graph discover
+hilo graph warm
 
 # 3. Auto-classify every file
 hilo classify
@@ -45,6 +50,9 @@ hilo graph related src/main.rs --relation imports
 ## Using with AI Agents
 
 ### Via MCP (Claude Desktop, Hermes, Continue)
+
+The MCP server needs an initialized project — run `hilo init` in the
+project directory first (it creates `manifest.yaml` / `.vfs/manifest.yaml`).
 
 ```bash
 hilo serve --mcp
@@ -68,6 +76,9 @@ Add to your MCP client configuration:
 
 ```bash
 mkdir /mnt/vfs
+# NOTE: hilo mount runs in the FOREGROUND and blocks this terminal until
+# unmounted (Ctrl-C to stop). Run it in a separate terminal, with `&`, or
+# use `hilo mount /mnt/vfs --daemon` to detach it into a background process.
 hilo mount /mnt/vfs
 
 # Standard tools work through the mount
@@ -75,3 +86,10 @@ ls /mnt/vfs/
 cat /mnt/vfs/src/main.rs
 getfattr -n user.vfs.role /mnt/vfs/src/main.rs
 ```
+
+### More commands
+
+Hilo also ships three more command families: `hilo backend` (virtual
+S3/git/local backends), `hilo workspace` (multi-repo mounts) and
+`hilo plugin` (WASM plugin runtime). See `hilo backend --help`,
+`hilo workspace --help` and `hilo plugin --help` for usage.

@@ -432,9 +432,13 @@ pub fn search_with_symbols(
     // Fuse via RRF (k=60 is the standard constant).
     let fused = reciprocal_rank_fusion(&tfidf_results, &bm25_results, 60);
 
-    // Convert to SearchResult, limited to opts.limit.
+    // Convert to SearchResult, limited to opts.limit. Malformed `pkg:{`
+    // pseudo-nodes (legacy garbage from unresolvable multi-name use
+    // statements, GAP-035) are excluded — they are not real search targets
+    // (GAP-038).
     let results = fused
         .into_iter()
+        .filter(|(path, _)| !path.starts_with("pkg:{"))
         .take(opts.limit)
         .map(|(path, score)| {
             // Extract matching symbols from the query tokens.
@@ -653,6 +657,30 @@ mod tests {
         assert!(
             results.iter().any(|r| r.file_path.contains("auth")),
             "should find auth files"
+        );
+    }
+
+    #[test]
+    fn search_excludes_malformed_pkg_pseudo_nodes() {
+        let db = GraphDB::open(":memory:").unwrap();
+        db.insert_edges(&[
+            edge("src/main.rs", "pkg:{\n    globset", "imports"),
+            edge("src/main.rs", "pkg:globset::GlobSet", "imports"),
+        ])
+        .unwrap();
+
+        let results = search(&db, "globset", &SearchOpts::default()).unwrap();
+        assert!(
+            results
+                .iter()
+                .any(|r| r.file_path == "pkg:globset::GlobSet"),
+            "valid pkg nodes must still be searchable, got {:?}",
+            results.iter().map(|r| &r.file_path).collect::<Vec<_>>()
+        );
+        assert!(
+            !results.iter().any(|r| r.file_path.starts_with("pkg:{")),
+            "malformed pkg:{{ pseudo-nodes must be excluded, got {:?}",
+            results.iter().map(|r| &r.file_path).collect::<Vec<_>>()
         );
     }
 

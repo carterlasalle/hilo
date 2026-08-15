@@ -27,7 +27,7 @@ const SKIP_DIRS: &[&str] = &[
 /// Pre-compute the full graph — parse ALL source files (optional warmup).
 ///
 /// This is the same batch-parse that was previously called
-/// `hilo graph discover`.  It remains useful for CI pipelines or users who
+/// `hilo graph warm`.  It remains useful for CI pipelines or users who
 /// want every file cached before running queries.  Day-to-day, queries are
 /// JIT (lazy) and do **not** require `warm` first.
 ///
@@ -332,6 +332,11 @@ pub fn run_impact(path: &str, max_depth: u32, format: Option<&str>, external: bo
     let graph = GraphDB::open(graph_db_str).context("failed to open DuckDB graph database")?;
 
     let results = if external {
+        // GAP-039: same node-existence check for the external path —
+        // unknown paths must fail loudly, not look like zero dependents.
+        if !graph.file_in_graph(path)? && !Path::new(path).exists() {
+            anyhow::bail!("'{path}' is not in the graph (no such file and no matching graph node)");
+        }
         // For external: parse start file first, then use cross-repo BFS.
         graph.ensure_parsed(path)?;
         hilo_graph::impact::compute_impact_with_external(graph.conn(), path, max_depth, true)
@@ -369,6 +374,14 @@ pub fn run_impact(path: &str, max_depth: u32, format: Option<&str>, external: bo
     Ok(())
 }
 
+/// Count non-empty lines in `.vfs/graph/edges.jsonl` (the raw edge records
+/// before DuckDB dedup). `None` when the file doesn't exist (JIT-only graph).
+fn raw_edges_jsonl_count(cwd: &std::path::Path) -> Option<usize> {
+    let path = cwd.join(".vfs").join("graph").join("edges.jsonl");
+    let content = std::fs::read_to_string(path).ok()?;
+    Some(content.lines().filter(|l| !l.trim().is_empty()).count())
+}
+
 /// Print summary statistics from the dependency graph.
 ///
 /// An empty cache is a valid state (not an error) — the graph starts
@@ -394,7 +407,16 @@ pub fn run_stats() -> Result<()> {
         return Ok(());
     }
 
-    println!("Total edges: {}", stats.total_edges);
+    // GAP-038: DuckDB dedupes multi-provenance edges, so the distinct edge
+    // count can be lower than the raw edges.jsonl line count — always
+    // surface both so the delta is explained instead of looking like a bug.
+    match raw_edges_jsonl_count(&cwd) {
+        Some(raw) => println!(
+            "Total edges: {} distinct / {} raw (edges.jsonl)",
+            stats.total_edges, raw
+        ),
+        None => println!("Total edges: {}", stats.total_edges),
+    }
     println!("Total files: {}", stats.total_files);
     if let Some(ref mc) = stats.most_connected {
         println!("Most connected: {mc}");
@@ -955,7 +977,7 @@ pub fn run_rule_check(name: &str) -> Result<()> {
     let graph_db = cwd.join(".vfs").join("graph").join("graph.db");
 
     if !graph_db.exists() {
-        anyhow::bail!("No graph data. Run `hilo graph discover` first.");
+        anyhow::bail!("No graph data. Run `hilo graph warm` first.");
     }
 
     let manifest = load_manifest()?;
@@ -1001,11 +1023,77 @@ pub fn run_rule_check(name: &str) -> Result<()> {
     }
 }
 
+/// `hilo graph clean` — delete the cached dependency graph.
+///
+/// Removes `.vfs/graph/edges.jsonl`, `.vfs/graph/graph.db`, and the
+/// `.last_warm` marker so the next `warm` (or JIT parse) rebuilds the graph
+/// from scratch. Use this after crate renames or file moves leave stale
+/// edges in the cache (e.g. `warpfs-*` entries after the rename to
+/// `hilo-*`).
+pub fn run_clean() -> Result<()> {
+    let cwd = std::env::current_dir().context("failed to determine the current directory")?;
+    let removed = clean_graph_dir(&cwd)?;
+    if removed == 0 {
+        println!(
+            "Graph cache already clean ({})",
+            cwd.join(".vfs").join("graph").display()
+        );
+    } else {
+        println!(
+            "Graph cache cleaned ({removed} file(s) removed). Run `hilo graph warm` to rebuild."
+        );
+    }
+    Ok(())
+}
+
+/// Remove the graph cache files under `cwd/.vfs/graph/`; returns the number
+/// of files removed. Missing files are not an error.
+fn clean_graph_dir(cwd: &Path) -> Result<usize> {
+    let graph_dir = cwd.join(".vfs").join("graph");
+    let mut removed = 0;
+    for name in ["edges.jsonl", "graph.db", ".last_warm"] {
+        let path = graph_dir.join(name);
+        match std::fs::remove_file(&path) {
+            Ok(()) => {
+                println!("removed {}", path.display());
+                removed += 1;
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => {
+                return Err(
+                    anyhow::Error::new(e).context(format!("failed to remove {}", path.display()))
+                )
+            }
+        }
+    }
+    Ok(removed)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::fs;
     use tempfile::TempDir;
+
+    #[test]
+    fn clean_removes_graph_cache() {
+        let dir = TempDir::new().unwrap();
+        let graph_dir = dir.path().join(".vfs").join("graph");
+        fs::create_dir_all(&graph_dir).unwrap();
+        for name in ["edges.jsonl", "graph.db", ".last_warm"] {
+            fs::write(graph_dir.join(name), "stale").unwrap();
+        }
+
+        let removed = clean_graph_dir(dir.path()).unwrap();
+        assert_eq!(removed, 3);
+        assert!(!graph_dir.join("edges.jsonl").exists());
+        assert!(!graph_dir.join("graph.db").exists());
+        assert!(!graph_dir.join(".last_warm").exists());
+
+        // Second run: nothing to remove, not an error.
+        let removed = clean_graph_dir(dir.path()).unwrap();
+        assert_eq!(removed, 0);
+    }
 
     #[test]
     fn glob_matches_exact() {

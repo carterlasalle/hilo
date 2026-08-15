@@ -446,20 +446,10 @@ fn extract_symbols_from_ast(node: tree_sitter::Node, source: &[u8], lang: Langua
             );
         }
         Language::Rust => {
-            collect_symbols(
-                node,
-                source,
-                &mut symbols,
-                &[
-                    "function_item",
-                    "struct_item",
-                    "enum_item",
-                    "trait_item",
-                    "impl_item",
-                    "macro_definition",
-                ],
-                extract_rust_signature,
-            );
+            // Single AST-order walk: definitions and `pub use` re-exports
+            // interleaved by source position, so the 8-symbol MAP cap cannot
+            // truncate re-exports that appear early in the file (GAP-037).
+            collect_rust_symbols(node, source, &mut symbols);
         }
         Language::Python => {
             collect_symbols(
@@ -762,6 +752,160 @@ fn collect_symbols(
     for child in children {
         collect_symbols(child, source, symbols, kinds, extractor);
     }
+}
+
+/// Collect Rust symbols in AST (source) order: top-level definitions AND
+/// `pub use` re-exports. Re-exports are first-class API surface (e.g.
+/// globset's lib.rs does `pub use crate::glob::{Glob, GlobBuilder,
+/// GlobSetBuilder};`), so a file that re-exports items should list them as
+/// symbols (GAP-037).
+fn collect_rust_symbols(node: tree_sitter::Node, source: &[u8], symbols: &mut Vec<Symbol>) {
+    match node.kind() {
+        "function_item" | "struct_item" | "enum_item" | "trait_item" | "impl_item"
+        | "macro_definition" => {
+            if let Some(sym) = extract_rust_signature(node, source) {
+                symbols.push(sym);
+            }
+        }
+        "use_declaration" if node_has_kind_child(node, "visibility_modifier") => {
+            let line = node.start_position().row + 1;
+            for name in rust_reexport_names(node, source) {
+                if symbols.iter().any(|s| s.name == name) {
+                    continue; // avoid duplicating a locally-defined symbol
+                }
+                symbols.push(Symbol {
+                    signature: format!("pub use {name}"),
+                    line,
+                    name,
+                });
+            }
+        }
+        _ => {}
+    }
+
+    let children: Vec<tree_sitter::Node> = {
+        let mut cursor = node.walk();
+        node.children(&mut cursor).collect()
+    };
+
+    for child in children {
+        collect_rust_symbols(child, source, symbols);
+    }
+}
+
+/// Whether `node` has a direct child of the given kind.
+fn node_has_kind_child(node: tree_sitter::Node, kind: &str) -> bool {
+    let mut cursor = node.walk();
+    let children: Vec<tree_sitter::Node> = node.children(&mut cursor).collect();
+    children.iter().any(|child| child.kind() == kind)
+}
+
+/// Extract the names re-exported by a `pub use` declaration.
+///
+/// Handles `pub use foo::Bar;`, `pub use foo::Bar as Baz;` and
+/// `pub use foo::{Bar, Baz as Qux, quux::Thing};` (including the
+/// `scoped_use_list` form `pub use foo::bar::{Baz};`). Wildcard re-exports
+/// (`pub use foo::*;`) return nothing — the names cannot be enumerated
+/// without resolving the target module.
+fn rust_reexport_names(node: tree_sitter::Node, source: &[u8]) -> Vec<String> {
+    let arg = match node.child_by_field_name("argument") {
+        Some(a) => a,
+        None => return Vec::new(),
+    };
+    let mut names = Vec::new();
+
+    match arg.kind() {
+        // `pub use foo::Bar as Baz;` — the alias is the exported name.
+        "use_as_clause" => {
+            push_reexport_identifier(arg.child_by_field_name("alias"), source, &mut names);
+        }
+        // `pub use foo::{Bar, Baz as Qux, quux::Thing};`
+        "use_list" | "scoped_use_list" => {
+            let list = if arg.kind() == "scoped_use_list" {
+                arg.child_by_field_name("list")
+            } else {
+                Some(arg)
+            };
+            if let Some(list) = list {
+                let mut cursor = list.walk();
+                for item in list.children(&mut cursor) {
+                    match item.kind() {
+                        "identifier" => push_reexport_identifier(Some(item), source, &mut names),
+                        "scoped_identifier" => {
+                            if let Some(name) = last_reexport_identifier(item, source) {
+                                if !names.contains(&name) {
+                                    names.push(name);
+                                }
+                            }
+                        }
+                        "use_as_clause" => push_reexport_identifier(
+                            item.child_by_field_name("alias"),
+                            source,
+                            &mut names,
+                        ),
+                        // `{Bar, qux::*}` — skip wildcard items.
+                        "use_wildcard" => {}
+                        _ => {}
+                    }
+                }
+            }
+        }
+        // `pub use foo::*;` — cannot enumerate.
+        "use_wildcard" => {}
+        // `pub use foo::Bar;` — the final path segment is the exported name.
+        _ => {
+            if let Some(name) = last_reexport_identifier(arg, source) {
+                names.push(name);
+            }
+        }
+    }
+
+    names
+}
+
+/// Push an identifier node's text as a re-export name (filtering
+/// `self`/`super`/`crate` path keywords and duplicates).
+fn push_reexport_identifier(
+    node: Option<tree_sitter::Node>,
+    source: &[u8],
+    names: &mut Vec<String>,
+) {
+    if let Some(n) = node {
+        if let Ok(text) = n.utf8_text(source) {
+            let name = text.trim().to_string();
+            if is_usable_reexport_name(&name) && !names.contains(&name) {
+                names.push(name);
+            }
+        }
+    }
+}
+
+/// The final (rightmost) identifier in a path subtree — the exported name.
+fn last_reexport_identifier(node: tree_sitter::Node, source: &[u8]) -> Option<String> {
+    if node.kind() == "identifier" {
+        let text = node.utf8_text(source).ok()?.trim().to_string();
+        return if is_usable_reexport_name(&text) {
+            Some(text)
+        } else {
+            None
+        };
+    }
+    let children: Vec<tree_sitter::Node> = {
+        let mut cursor = node.walk();
+        node.children(&mut cursor).collect()
+    };
+    // Path segments nest left-to-right, so the rightmost identifier wins.
+    for child in children.iter().rev() {
+        if let Some(name) = last_reexport_identifier(*child, source) {
+            return Some(name);
+        }
+    }
+    None
+}
+
+/// `self`/`super`/`crate` are path keywords, not exported names.
+fn is_usable_reexport_name(name: &str) -> bool {
+    !matches!(name, "self" | "super" | "crate" | "Self")
 }
 
 // ── Per-language signature extractors ──────────────────────────
@@ -1617,6 +1761,58 @@ struct Config {
         assert!(
             symbols.iter().any(|s| s.name.contains("parse_config")),
             "should extract parse_config function"
+        );
+    }
+
+    #[test]
+    fn extract_symbols_rust_pub_use_reexports() {
+        let src = r#"use std::io::Read;
+
+pub use crate::glob::{Glob, GlobBuilder, GlobSetBuilder};
+pub use crate::error::Error as HiloError;
+pub use crate::patterns::{self, DoubleEnded, PathExt};
+pub use crate::wildcard::*;
+
+mod inner {
+    pub use crate::hidden::Secret;
+}
+
+use crate::private::Hidden;
+"#;
+        let symbols = extract_symbols("test.rs", src);
+        let names: Vec<&str> = symbols.iter().map(|s| s.name.as_str()).collect();
+
+        // pub use list items become symbols.
+        for expected in ["Glob", "GlobBuilder", "GlobSetBuilder"] {
+            assert!(
+                names.contains(&expected),
+                "re-export {expected} should be a symbol, got {names:?}"
+            );
+        }
+        // Aliased re-exports export the alias.
+        assert!(
+            names.contains(&"HiloError"),
+            "aliased re-export should export the alias, got {names:?}"
+        );
+        // `self` in a use list is a path keyword, not a re-export.
+        assert!(
+            !names.contains(&"self"),
+            "'self' must not be a re-export symbol, got {names:?}"
+        );
+        // Wildcard re-exports cannot be enumerated.
+        assert!(
+            !names.contains(&"wildcard"),
+            "wildcard re-export must not leak its module name, got {names:?}"
+        );
+        // Re-exports nested in a private module are still pub, so listed.
+        assert!(
+            names.contains(&"Secret"),
+            "pub use inside a private module should be a symbol, got {names:?}"
+        );
+        // A private use is NOT a re-export.
+        assert!(
+            !names.contains(&"Hidden"),
+            "private use must not be a symbol, got {names:?}"
         );
     }
 

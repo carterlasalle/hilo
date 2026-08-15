@@ -357,41 +357,56 @@ impl GraphDB {
             Direction::Reverse => "\"to\"",
         };
 
-        let (sql, params_vec): (String, Vec<Box<dyn duckdb::ToSql>>) = if let Some(rel) = rel_filter
-        {
-            (
-                format!(
-                    "SELECT \"from\", \"to\", rel, provenance, confidence FROM edges WHERE {column} = ? AND rel = ?"
-                ),
-                vec![
-                    Box::new(path.to_string()),
-                    Box::new(rel.to_string()),
-                ],
-            )
-        } else {
-            (
-                format!(
-                    "SELECT \"from\", \"to\", rel, provenance, confidence FROM edges WHERE {column} = ?"
-                ),
-                vec![Box::new(path.to_string())],
-            )
-        };
-        let param_refs: Vec<&dyn duckdb::ToSql> = params_vec.iter().map(|p| p.as_ref()).collect();
-
-        let mut stmt = self.conn.prepare(&sql)?;
-        let rows = stmt.query_map(param_refs.as_slice(), |row| {
-            Ok(Edge {
-                from: row.get::<_, String>(0)?,
-                to: row.get::<_, String>(1)?,
-                rel: row.get::<_, String>(2)?,
-                provenance: row.get::<_, String>(3)?,
-                confidence: row.get::<_, f64>(4)?,
-            })
-        })?;
+        // GAP-034: reverse lookups on a file must also match dependents that
+        // target the file's crate `pkg:<name>` node — the parser emits pkg:
+        // edges, not file→file edges, so a plain `WHERE "to" = <file>`
+        // returns nothing for files that are only imported as part of their
+        // crate. Symbol nodes (`pkg:...`/`sys:...`) resolve to None.
+        let mut targets: Vec<String> = vec![path.to_string()];
+        if direction == Direction::Reverse {
+            if let Some(pkg) = crate::resolution::PkgResolver::new().pkg_node(path) {
+                targets.push(pkg);
+            }
+        }
 
         let mut edges = Vec::new();
-        for row in rows {
-            edges.push(row?);
+        for target in &targets {
+            let (sql, params_vec): (String, Vec<Box<dyn duckdb::ToSql>>) = if let Some(rel) =
+                rel_filter
+            {
+                (
+                        format!(
+                            "SELECT \"from\", \"to\", rel, provenance, confidence FROM edges WHERE {column} = ? AND rel = ?"
+                        ),
+                        vec![
+                            Box::new(target.clone()),
+                            Box::new(rel.to_string()),
+                        ],
+                    )
+            } else {
+                (
+                        format!(
+                            "SELECT \"from\", \"to\", rel, provenance, confidence FROM edges WHERE {column} = ?"
+                        ),
+                        vec![Box::new(target.clone())],
+                    )
+            };
+            let param_refs: Vec<&dyn duckdb::ToSql> =
+                params_vec.iter().map(|p| p.as_ref()).collect();
+
+            let mut stmt = self.conn.prepare(&sql)?;
+            let rows = stmt.query_map(param_refs.as_slice(), |row| {
+                Ok(Edge {
+                    from: row.get::<_, String>(0)?,
+                    to: row.get::<_, String>(1)?,
+                    rel: row.get::<_, String>(2)?,
+                    provenance: row.get::<_, String>(3)?,
+                    confidence: row.get::<_, f64>(4)?,
+                })
+            })?;
+            for row in rows {
+                edges.push(row?);
+            }
         }
         Ok(edges)
     }
@@ -413,8 +428,16 @@ impl GraphDB {
 
     /// Find files that have import edges but no `tested_by` edges pointing at them.
     ///
-    /// Returns the list of source files that import other files but are not
-    /// covered by any test (sorted alphabetically).
+    /// Test and bench files are excluded: they legitimately have `imports`
+    /// edges (they import the crate under test) without ever being the
+    /// *target* of a `tested_by` edge, so an unfiltered query would list
+    /// every test file as "untested". Files matching the same
+    /// depth-agnostic test/bench path patterns used by `classify` (top-level
+    /// `tests/`/`benches/`, nested `crates/*/tests/`, `*_test.rs`, ...) are
+    /// filtered out before returning.
+    ///
+    /// Returns the list of *production* source files that import other files
+    /// but are not covered by any test (sorted alphabetically).
     pub fn untested_files(&self) -> GraphResult<Vec<String>> {
         let mut stmt = self.conn.prepare(
             "SELECT DISTINCT \"from\" FROM edges \
@@ -427,6 +450,10 @@ impl GraphDB {
         for r in rows {
             files.push(r?);
         }
+        // Exclude test/bench files — they are not "untested production code".
+        // Same predicate classify uses for role=test, so the two commands
+        // can never disagree about a file (GAP-036).
+        files.retain(|f| !crate::classify::is_test_file(f));
         Ok(files)
     }
 
@@ -514,10 +541,13 @@ impl GraphDB {
             |row| row.get::<_, i64>(0),
         )?;
 
-        // Top dependencies by reference count.
+        // Top dependencies by reference count. Malformed `pkg:{` pseudo-nodes
+        // (legacy garbage from unresolvable multi-name use statements, GAP-035)
+        // are excluded — they are not real dependencies (GAP-038).
         let mut stmt = self.conn.prepare(
             "SELECT \"to\", COUNT(*) AS cnt \
              FROM edges \
+             WHERE \"to\" NOT LIKE 'pkg:{%' \
              GROUP BY \"to\" \
              ORDER BY cnt DESC \
              LIMIT 10",
@@ -641,11 +671,24 @@ impl GraphDB {
     /// Parses the start file on-the-fly if not cached, then runs BFS over
     /// whatever edges are in the DuckDB cache. When `max_depth` is 0,
     /// returns empty immediately.
+    ///
+    /// GAP-039: a start path that is neither a known graph node nor a file
+    /// on disk is an error (`'<path>' is not in the graph ...`) — the old
+    /// behavior silently returned "No dependents found" with exit 0,
+    /// indistinguishable from a real node with no dependents.
     pub fn impact_or_parse(
         &self,
         start_path: &str,
         max_depth: u32,
     ) -> GraphResult<Vec<ImpactFile>> {
+        // Node-existence check at query time: unknown paths (not in graph,
+        // not on disk) must fail loudly instead of looking like a node with
+        // zero dependents. Symbol nodes (pkg:/sys:) pass when in the graph.
+        if !self.file_in_graph(start_path)? && !Path::new(start_path).exists() {
+            return Err(GraphError::Other(format!(
+                "'{start_path}' is not in the graph (no such file and no matching graph node)"
+            )));
+        }
         // Parse the start file first (no-op if already cached).
         self.ensure_parsed(start_path)?;
         // Delegate to existing BFS over the DuckDB edges cache.
@@ -744,6 +787,41 @@ mod tests {
         let db = GraphDB::open(":memory:").unwrap();
         let results = db.impact_or_parse(&path, 0).unwrap();
         assert!(results.is_empty());
+    }
+
+    #[test]
+    fn impact_or_parse_unknown_path_errors_not_empty_silence() {
+        // GAP-039: a path absent from both disk and graph must error loudly,
+        // not return an empty result (indistinguishable from a real node
+        // with no dependents).
+        let db = GraphDB::open(":memory:").unwrap();
+        let err = db
+            .impact_or_parse("/nonexistent/path/unknown.rs", 3)
+            .unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("not in the graph"),
+            "error should say 'not in the graph', got: {msg}"
+        );
+        assert!(
+            msg.contains("unknown.rs"),
+            "error should name the path, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn impact_or_parse_symbol_node_in_graph_still_works() {
+        // GAP-039: pkg:/sys: symbol nodes that ARE in the graph must keep
+        // working (documented query form) — the check is node-existence,
+        // not file-existence.
+        let db = GraphDB::open(":memory:").unwrap();
+        let edges = vec![
+            Edge::new("a.go", "pkg:fmt", "imports"),
+            Edge::new("b.go", "pkg:fmt", "imports"),
+        ];
+        db.insert_edges(&edges).unwrap();
+        let results = db.impact_or_parse("pkg:fmt", 3).unwrap();
+        assert_eq!(results.len(), 2, "pkg:fmt should have 2 dependents");
     }
 
     // ── Free-function tests: ensure_schema + insert_edges_into ──────────
@@ -948,5 +1026,57 @@ mod tests {
         let db2 = GraphDB::open(db_path_str).unwrap();
         let count = db2.count_edges().unwrap();
         assert_eq!(count, 2, "re-open must not duplicate edges");
+    }
+
+    #[test]
+    fn untested_files_excludes_test_and_bench_files() {
+        // GAP-036: test/bench files have `imports` edges (they import the
+        // crate under test) but are never the *target* of a `tested_by`
+        // edge, so an unfiltered query lists every test file as untested.
+        let db = GraphDB::open(":memory:").unwrap();
+        let edges = vec![
+            // Production file with imports but no tests -> genuinely untested.
+            Edge::new("src/util.rs", "pkg:std", "imports"),
+            // Production file imported by a test -> covered.
+            Edge::new("src/lib.rs", "pkg:std", "imports"),
+            Edge::new("tests/lib_test.rs", "src/lib.rs", "imports"),
+            Edge::new("tests/lib_test.rs", "src/lib.rs", "tested_by"),
+            // Bench file with an imports edge -> must not appear.
+            Edge::new("benches/graph_bench.rs", "src/lib.rs", "imports"),
+            // Nested crate-level test file -> must not appear.
+            Edge::new(
+                "crates/globset/tests/matcher_test.rs",
+                "pkg:globset",
+                "imports",
+            ),
+        ];
+        db.insert_edges(&edges).unwrap();
+
+        let untested = db.untested_files().unwrap();
+        assert!(
+            untested.contains(&"src/util.rs".to_string()),
+            "genuinely untested production file must be listed, got: {untested:?}"
+        );
+        assert!(
+            !untested.contains(&"src/lib.rs".to_string()),
+            "tested file must not be listed, got: {untested:?}"
+        );
+        assert!(
+            !untested.contains(&"tests/lib_test.rs".to_string()),
+            "test file must be excluded from untested, got: {untested:?}"
+        );
+        assert!(
+            !untested.contains(&"benches/graph_bench.rs".to_string()),
+            "bench file must be excluded from untested, got: {untested:?}"
+        );
+        assert!(
+            !untested.contains(&"crates/globset/tests/matcher_test.rs".to_string()),
+            "nested test file must be excluded from untested, got: {untested:?}"
+        );
+        assert_eq!(
+            untested.len(),
+            1,
+            "only src/util.rs should remain, got: {untested:?}"
+        );
     }
 }
